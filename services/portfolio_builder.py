@@ -1,12 +1,10 @@
 """FinanzBro - Portfolio Builder (C1 Refactoring)
 
-Leichtgewichtiges Portfolio-Update aus Parqet API:
-  1. Lädt Positionen + Cash von Parqet
-  2. Holt aktuelle Kurse via yFinance
-  3. Berechnet Gesamtportfolio in EUR
-  4. Merged vorherige Analyse-Daten (Scores, Fundamentals)
+Zwei getrennte Update-Pfade:
+  1. update_parqet()         → Positionen, Cash, Stückzahl, Einkaufspreis (Parqet API)
+  2. update_yfinance_prices() → Tagesaktuelle Kurse + Daily Changes (yFinance)
 
-Kein FMP/AlphaVantage — dauert nur 10-15 Sekunden.
+FMP/Technical werden erst beim 16:15 Full-Refresh geladen.
 Extrahiert aus services/refresh.py für bessere Modularität.
 """
 import logging
@@ -23,11 +21,11 @@ logger = logging.getLogger(__name__)
 
 
 async def update_parqet() -> dict:
-    """Leichtgewichtiges Portfolio-Update: Parqet API → yFinance Kurse → Gesamtwert.
+    """Parqet-only Update: Positionen, Cash, Stückzahl, Einkaufspreis.
 
-    Lädt Positionen + Cash von Parqet API, holt aktuelle Kurse per yFinance,
-    berechnet Gesamtportfolio in EUR. Kein FMP/Stocknear/AlphaVantage.
-    Dauert typischerweise 10-15 Sekunden statt Minuten.
+    Lädt NUR die Portfolio-Struktur von der Parqet API.
+    Preise kommen von Parqet Performance API (Vortagesschluss).
+    Kein yFinance, kein FMP — dauert nur 2-5 Sekunden.
     """
     if refresh_lock.locked():
         logger.info("Update bereits aktiv - überspringe")
@@ -36,7 +34,7 @@ async def update_parqet() -> dict:
     async with refresh_lock:
         portfolio_data["refreshing"] = True
         try:
-            logger.info("🔄 Update Parqet gestartet...")
+            logger.info("🔄 Parqet-Update gestartet (nur Positionen)...")
 
             # 1. Fetch positions from Parqet API
             positions = await fetch_portfolio()
@@ -50,28 +48,10 @@ async def update_parqet() -> dict:
             converter = await CurrencyConverter.create()
             eur_usd_rate = converter.rates.eur_usd
 
-            # 3. Get current prices via yFinance
-            stock_positions = [p for p in positions if p.ticker != "CASH"]
-            ticker_to_yf = {p.ticker: YFINANCE_ALIASES.get(p.ticker, p.ticker) for p in stock_positions}
-            yf_tickers = list(set(ticker_to_yf.values()))
-            prices_raw, daily_raw = await quick_price_update(yf_tickers) if yf_tickers else ({}, {})
-
-            # Map prices back to original tickers
-            prices = {}
-            daily_changes = {}
-            for orig, yf_t in ticker_to_yf.items():
-                if yf_t in prices_raw:
-                    prices[orig] = prices_raw[yf_t]
-                if yf_t in daily_raw:
-                    daily_changes[orig] = daily_raw[yf_t]
-
-            # ISIN-based tickers fallback
-            await _fetch_isin_prices(stock_positions, prices, daily_changes)
-
-            # 4. Fetch stock names from yfinance
+            # 3. Fetch stock names from yfinance (schnell, nutzt Cache)
             name_map = await _fetch_stock_names(positions)
 
-            # 5. Build StockFullData with merged previous analysis
+            # 4. Build StockFullData with merged previous analysis
             prev_summary = portfolio_data.get("summary")
             prev_stocks_map = {}
             if prev_summary and prev_summary.stocks:
@@ -79,10 +59,14 @@ async def update_parqet() -> dict:
 
             stocks = []
             for pos in positions:
-                _apply_price_and_metadata(pos, prices, daily_changes, name_map, converter, prev_stocks_map)
+                # Preise vom Parqet Performance API (bereits in EUR)
+                _apply_metadata_only(pos, name_map, converter, prev_stocks_map)
 
                 prev = prev_stocks_map.get(pos.ticker)
                 if prev:
+                    # Merge vorherige Daily Changes
+                    if prev.position.daily_change_pct is not None:
+                        pos.daily_change_pct = prev.position.daily_change_pct
                     stocks.append(StockFullData(
                         position=pos,
                         score=prev.score,
@@ -97,20 +81,20 @@ async def update_parqet() -> dict:
                 else:
                     stocks.append(StockFullData(position=pos))
 
-            # 6. Calculate totals
+            # 5. Calculate totals
             total_value = sum(s.position.current_value for s in stocks)
             total_cost = sum(s.position.total_cost for s in stocks)
             total_pnl = total_value - total_cost
             total_pnl_pct = (total_pnl / total_cost * 100) if total_cost > 0 else 0
 
-            # Daily change
+            # Daily change (aus vorherigen Daten beibehalten)
             daily_total_eur = sum(
                 s.position.current_value * (s.position.daily_change_pct or 0) / (100 + (s.position.daily_change_pct or 0))
                 for s in stocks if s.position.ticker != "CASH" and s.position.daily_change_pct is not None
             )
             daily_total_pct = (daily_total_eur / (total_value - daily_total_eur) * 100) if (total_value - daily_total_eur) > 0 else 0
 
-            # 7. Build summary
+            # 6. Build summary
             prev_scores = [s.score for s in stocks if s.score]
             summary = PortfolioSummary(
                 total_value=round(total_value, 2),
@@ -132,13 +116,12 @@ async def update_parqet() -> dict:
             portfolio_data["summary"] = summary
             portfolio_data["last_refresh"] = datetime.now(tz=TZ_BERLIN)
 
-            # Cash bestimmen
             cash_eur = next(
                 (s.position.current_price for s in stocks if s.position.ticker == "CASH"), 0.0
             )
 
             logger.info(
-                f"✅ Update Parqet abgeschlossen: {len(stocks)} Positionen, "
+                f"✅ Parqet-Update abgeschlossen: {len(stocks)} Positionen, "
                 f"Gesamt: {total_value:,.2f} EUR (Cash: {cash_eur:,.2f} EUR)"
             )
 
@@ -151,12 +134,112 @@ async def update_parqet() -> dict:
             }
 
         except Exception as e:
-            logger.error(f"❌ Update Parqet fehlgeschlagen: {e}")
+            logger.error(f"❌ Parqet-Update fehlgeschlagen: {e}")
             import traceback
             traceback.print_exc()
             return {"status": "error", "message": str(e)}
         finally:
             portfolio_data["refreshing"] = False
+
+
+async def update_yfinance_prices() -> dict:
+    """yFinance Kurs-Update: Aktuelle Preise + Daily Changes.
+
+    Lädt tagesaktuelle Kurse und Tagesänderungen für alle Positionen.
+    Unabhängig von Parqet und FMP — kann jederzeit aufgerufen werden.
+    """
+    summary = portfolio_data.get("summary")
+    if not summary or not summary.stocks:
+        logger.warning("Kein Portfolio vorhanden — yFinance-Update übersprungen")
+        return {"status": "no_portfolio"}
+
+    try:
+        logger.info("📈 yFinance Kurs-Update gestartet...")
+
+        # Wechselkurse laden
+        converter = await CurrencyConverter.create()
+
+        # Alle Aktien-Ticker sammeln (kein CASH)
+        stock_tickers = [s.position.ticker for s in summary.stocks if s.position.ticker != "CASH"]
+        ticker_to_yf = {t: YFINANCE_ALIASES.get(t, t) for t in stock_tickers}
+        yf_tickers = list(set(ticker_to_yf.values()))
+
+        # 1. Batch-Download: Preise + Daily Changes
+        prices_raw, daily_raw = await quick_price_update(yf_tickers) if yf_tickers else ({}, {})
+
+        # Map zurück auf Original-Ticker
+        prices = {}
+        daily_changes = {}
+        for orig, yf_t in ticker_to_yf.items():
+            if yf_t in prices_raw:
+                prices[orig] = prices_raw[yf_t]
+            if yf_t in daily_raw:
+                daily_changes[orig] = daily_raw[yf_t]
+
+        # 2. ISIN-basierte Ticker Fallback
+        isin_positions = [s.position for s in summary.stocks
+                         if s.position.ticker not in prices
+                         and len(s.position.ticker) == 12
+                         and s.position.ticker[:2].isalpha()]
+        await _fetch_isin_prices(isin_positions, prices, daily_changes)
+
+        # 3. Preise + Daily Changes auf Positionen anwenden
+        updated = 0
+        total_value = 0.0
+        total_cost = 0.0
+
+        for stock in summary.stocks:
+            pos = stock.position
+            if pos.ticker == "CASH":
+                total_value += pos.current_value
+                total_cost += pos.total_cost
+                continue
+
+            # Aktuellen Kurs setzen (yFinance → EUR)
+            if pos.ticker in prices and prices[pos.ticker] > 0:
+                raw_price = prices[pos.ticker]
+                pos.current_price = converter.to_eur(raw_price, pos.ticker)
+                pos.price_currency = "EUR"
+                updated += 1
+
+            # Daily Change setzen
+            if pos.ticker in daily_changes:
+                pos.daily_change_pct = daily_changes[pos.ticker]
+
+            total_value += pos.current_value
+            total_cost += pos.total_cost
+
+        # 4. Summary-Werte aktualisieren
+        summary.total_value = round(total_value, 2)
+        summary.total_cost = round(total_cost, 2)
+        total_pnl = total_value - total_cost
+        summary.total_pnl = round(total_pnl, 2)
+        summary.total_pnl_percent = round((total_pnl / total_cost * 100) if total_cost > 0 else 0, 1)
+
+        # Daily total change
+        daily_total_eur = sum(
+            s.position.current_value * (s.position.daily_change_pct or 0) / (100 + (s.position.daily_change_pct or 0))
+            for s in summary.stocks if s.position.ticker != "CASH" and s.position.daily_change_pct is not None
+        )
+        daily_total_pct = (daily_total_eur / (total_value - daily_total_eur) * 100) if (total_value - daily_total_eur) > 0 else 0
+        summary.daily_total_change = round(daily_total_eur, 2)
+        summary.daily_total_change_pct = round(daily_total_pct, 2)
+        summary.last_updated = datetime.now(tz=TZ_BERLIN)
+
+        logger.info(
+            f"📈 yFinance-Update: {updated}/{len(stock_tickers)} Kurse, "
+            f"{len(daily_changes)}/{len(stock_tickers)} Daily Changes"
+        )
+
+        return {
+            "status": "done",
+            "prices_updated": updated,
+            "daily_changes": len(daily_changes),
+        }
+
+    except Exception as e:
+        logger.warning(f"yFinance Kurs-Update fehlgeschlagen: {e}")
+        return {"status": "error", "message": str(e)}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -206,30 +289,15 @@ async def _fetch_stock_names(positions) -> dict:
     return name_map
 
 
-def _apply_price_and_metadata(pos, prices, daily_changes, name_map, converter, prev_stocks_map):
-    """Wendet Preis, Daily Change und Metadaten auf eine Position an."""
+def _apply_metadata_only(pos, name_map, converter, prev_stocks_map):
+    """Wendet nur Metadaten (Name, Sektor) auf eine Position an. Keine Preisänderung."""
     if pos.ticker == "CASH":
         pos.price_currency = "EUR"
         return
 
-    # Set price from yFinance → EUR
-    if pos.ticker in prices and prices[pos.ticker] > 0:
-        # yFinance liefert den Preis in Originalwaehrung (USD, DKK, etc.)
-        # → muss konvertiert werden
-        raw_price = prices[pos.ticker]
-        pos.current_price = converter.to_eur(raw_price, pos.ticker)
-    elif pos.currency == "EUR":
-        # Fallback: Performance API Preis ist bereits in EUR
-        # → KEINE Konvertierung noetig!
-        pass
-    else:
-        # Fallback fuer nicht-EUR Positionen ohne yFinance-Preis
-        pos.current_price = converter.to_eur(pos.current_price, pos.ticker)
+    # Preis von Parqet Performance API (bereits in EUR)
+    # → KEINE Konvertierung nötig (Parqet liefert Portfolio-Währung)
     pos.price_currency = "EUR"
-
-    # Daily change
-    if pos.ticker in daily_changes:
-        pos.daily_change_pct = daily_changes[pos.ticker]
 
     # Name from yfinance
     if pos.ticker in name_map:

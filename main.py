@@ -54,8 +54,18 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.debug(f"JSON-Migration übersprungen: {e}")
 
-    # Fast startup: Parqet API + yFinance prices only (no heavy FMP/Stocknear/AV)
-    asyncio.create_task(_update_parqet())
+    # Fast startup: Parqet positions first, then yFinance prices
+    async def _startup_load():
+        await _update_parqet()
+        # yFinance Kurse + Daily Changes separat laden (unabhängig von FMP)
+        try:
+            from services.portfolio_builder import update_yfinance_prices
+            result = await update_yfinance_prices()
+            logger.info(f"📈 yFinance-Startup: {result}")
+        except Exception as e:
+            logger.warning(f"yFinance-Startup fehlgeschlagen: {e}")
+
+    asyncio.create_task(_startup_load())
 
     # Verzögerter Full-Refresh: Lädt FMP, yFinance, Technical Daten im Hintergrund
     # → Startet 30s nach App-Start (wenn Parqet-Positionen bereits geladen sind)
