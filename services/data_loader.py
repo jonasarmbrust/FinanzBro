@@ -64,6 +64,8 @@ async def load_position_data(
         data = {}
         for i, key in enumerate(keys):
             if isinstance(results[i], Exception):
+                import sys
+                print(f"[DEBUG] {key} FAILED for {pos.ticker}: {type(results[i]).__name__}: {results[i]}", flush=True, file=sys.stderr)
                 logger.warning(f"{key} fehlgeschlagen für {pos.ticker}: {results[i]}")
                 data[key] = None
             else:
