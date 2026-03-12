@@ -39,7 +39,7 @@ FinanzBro/
 │   └── analyst_tracker.py  # Analysten Track Record Bewertung
 │
 ├── engine/
-│   ├── scorer.py           # 10-Faktor Scoring Engine
+│   ├── scorer.py           # 10-Faktor Scoring Engine v5
 │   ├── rebalancer.py       # Portfolio-Rebalancing
 │   ├── analysis.py         # Analyse-Reports → SQLite
 │   ├── analytics.py        # Korrelation, Risiko, Dividenden
@@ -59,7 +59,7 @@ FinanzBro/
 │   └── demo_data.py        # Synthetische Demo-Daten
 │
 ├── static/                 # Frontend (HTML/JS/CSS)
-└── tests/                  # 253 pytest Tests
+└── tests/                  # 113 pytest Tests
 ```
 
 ## Datenfluss
@@ -171,4 +171,4 @@ Konfiguration:
 |-----|------|----------|
 | Full Analyse | 16:15 CET | Refresh + Scoring + AI Report |
 | Intraday Kurse | alle 15min Mo-Fr 8-22h | yFinance Batch |
-| Weekly Digest | Sonntag 18:00 | KI-Zusammenfassung |
+| Weekly Digest | Freitag 22:30 | KI-Zusammenfassung |

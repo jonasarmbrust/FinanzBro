@@ -136,11 +136,6 @@ class AnalystData(BaseModel):
     track_records: list[AnalystTrackRecord] = []   # Track Records pro Firma
 
 
-class StocknearData(BaseModel):
-    """Daten von Stocknear (legacy, wird nicht mehr aktiv genutzt)."""
-    ai_score: Optional[float] = None  # 1-10
-    analyst_consensus: Optional[str] = None
-    technical_signal: Optional[str] = None  # "Bullish", "Bearish", "Neutral"
 
 
 class TechnicalIndicators(BaseModel):
@@ -165,11 +160,6 @@ class YFinanceData(BaseModel):
     earnings_growth_yoy: Optional[float] = None  # in %
 
 
-class AlphaVantageData(BaseModel):
-    """Daten von Alpha Vantage."""
-    news_sentiment: Optional[float] = None  # -1.0 bis 1.0
-    rsi_14: Optional[float] = None  # 0-100
-    macd_signal: Optional[str] = None  # "Bullish", "Bearish", "Neutral"
 
 
 class FearGreedData(BaseModel):
@@ -192,17 +182,17 @@ class FmpRating(BaseModel):
 
 
 class ScoreBreakdown(BaseModel):
-    """Aufschluesselung des Gesamtscores (v4: 9 Faktoren)."""
-    quality_score: float = 0.0        # 0-100 (ROE, Margins, D/E) — 20%
-    valuation_score: float = 0.0      # 0-100 (PE, EV/EBITDA, PEG, FCF Yield) — 15%
+    """Aufschluesselung des Gesamtscores (v5: 10 Faktoren)."""
+    quality_score: float = 0.0        # 0-100 (ROE, Margins, D/E) — 19%
+    valuation_score: float = 0.0      # 0-100 (PE, EV/EBITDA, PEG, FCF Yield) — 14%
     analyst_score: float = 0.0        # 0-100 (Konsens + Preisziel) — 15%
-    technical_score: float = 0.0      # 0-100 (RSI + SMA + Momentum) — 15%
-    growth_score: float = 0.0         # 0-100 (Revenue, Earnings YoY, ROIC) — 12%
+    technical_score: float = 0.0      # 0-100 (RSI + SMA + Momentum) — 13%
+    growth_score: float = 0.0         # 0-100 (Revenue, Earnings YoY, ROIC) — 11%
     quantitative_score: float = 0.0   # 0-100 (Altman Z + Piotroski) — 10%
     sentiment_score: float = 0.0      # 0-100 (Fear&Greed Index) — 7%
+    momentum_score: float = 0.0       # 0-100 (3M/6M Kurs-Momentum) — 6%
     insider_score: float = 0.0        # 0-100 (Insider Buy/Sell) — 3%
     esg_score: float = 0.0            # 0-100 (ESG Risk) — 2%
-    momentum_score: float = 0.0       # 0-100 (3M/6M Kurs-Momentum) — 6%
     # Legacy fields (kept for backwards compat, not used in v4)
     fundamental_score: float = 0.0
     price_target_score: float = 0.0

@@ -210,6 +210,17 @@ async def get_financial_scores(ticker: str) -> Optional[dict]:
     return await _cached_fmp_call(f"score_{ticker}", "score", {"symbol": ticker})
 
 
+async def get_financial_growth(ticker: str) -> Optional[dict]:
+    """Holt Income Statement Growth (Revenue Growth, Net Income Growth).
+
+    FMP Stable API: /income-statement-growth?symbol=AAPL
+    Liefert echte YoY-Wachstumsraten als Dezimalwerte (z.B. 0.08 = 8%).
+    """
+    return await _cached_fmp_call(
+        f"growth_{ticker}", "income-statement-growth", {"symbol": ticker}
+    )
+
+
 async def get_upgrades_downgrades_consensus(ticker: str) -> Optional[dict]:
     """Holt Upgrades & Downgrades Consensus."""
     return await _cached_fmp_call(
@@ -340,9 +351,11 @@ async def fetch_fundamentals(ticker: str) -> FundamentalData:
         fd.net_margin = ratios.get("netProfitMarginTTM")
         fd.dividend_yield = ratios.get("dividendYielTTM")
 
-    if metrics:
-        fd.revenue_growth = metrics.get("revenuePerShareTTM")
-        fd.earnings_growth = metrics.get("netIncomePerShareTTM")
+    # Wachstum: Echte Growth Rates aus income-statement-growth (nicht per-share absolut)
+    growth = await get_financial_growth(ticker)
+    if growth:
+        fd.revenue_growth = growth.get("growthRevenue")            # Dezimal, z.B. 0.08 = 8%
+        fd.earnings_growth = growth.get("growthNetIncome")         # Dezimal, z.B. 0.12 = 12%
 
     if fin_scores:
         fd.altman_z_score = fin_scores.get("altmanZScore")
@@ -451,11 +464,12 @@ async def fetch_all_fmp_data(ticker: str) -> dict:
         dict mit keys: fundamentals, analyst, fmp_rating, profile
     """
     # Ein einziger flacher Gather — profile wird nur 1x aufgerufen
-    profile, ratios, metrics, fin_scores, rating, consensus, pt, ud = await asyncio.gather(
+    profile, ratios, metrics, fin_scores, growth, rating, consensus, pt, ud = await asyncio.gather(
         get_company_profile(ticker),
         get_financial_ratios(ticker),
         get_key_metrics(ticker),
         get_financial_scores(ticker),
+        get_financial_growth(ticker),
         get_rating_snapshot(ticker),
         get_upgrades_downgrades_consensus(ticker),
         get_price_target_summary(ticker),
@@ -480,24 +494,19 @@ async def fetch_all_fmp_data(ticker: str) -> dict:
         fd.net_margin = ratios.get("netProfitMarginTTM")
         fd.dividend_yield = ratios.get("dividendYielTTM")
     if metrics:
-        fd.revenue_growth = metrics.get("revenuePerShareTTM")
-        fd.earnings_growth = metrics.get("netIncomePerShareTTM")
         # v3: Valuation & Growth Kennzahlen (bereits im key-metrics-ttm enthalten)
         fd.ev_to_ebitda = metrics.get("evToEBITDATTM")
         fd.free_cashflow_yield = metrics.get("freeCashFlowYieldTTM")
         fd.roic = metrics.get("returnOnInvestedCapitalTTM")
+        # PEG Ratio direkt von FMP (korrekt berechnet)
+        fd.peg_ratio = metrics.get("pegRatioTTM")
+    # Wachstum: Echte Growth Rates aus income-statement-growth
+    if growth:
+        fd.revenue_growth = growth.get("growthRevenue")        # Dezimal, z.B. 0.08 = 8%
+        fd.earnings_growth = growth.get("growthNetIncome")     # Dezimal, z.B. 0.12 = 12%
     if fin_scores:
         fd.altman_z_score = fin_scores.get("altmanZScore")
         fd.piotroski_score = fin_scores.get("piotroskiScore")
-
-    # v3: PEG Ratio berechnen (PE / Earnings Growth in %)
-    if fd.pe_ratio and fd.pe_ratio > 0 and fd.earnings_growth and fd.earnings_growth > 0:
-        # earnings_growth ist netIncomePerShare, wir brauchen die YoY-Wachstumsrate
-        # Verwende earningsYield als Proxy für Wachstumsbewertung
-        earnings_yield = metrics.get("earningsYieldTTM") if metrics else None
-        if earnings_yield and earnings_yield > 0:
-            # PEG = PE / (EarningsYield * 100) normalisiert
-            fd.peg_ratio = round(fd.pe_ratio / (earnings_yield * 100), 2)
 
     # --- Build AnalystData ---
     ad = AnalystData()
@@ -577,7 +586,6 @@ async def fetch_light_fmp_data(ticker: str) -> dict:
         fd.operating_margin = ratios.get("operatingProfitMarginTTM")
         fd.net_margin = ratios.get("netProfitMarginTTM")
         fd.dividend_yield = ratios.get("dividendYielTTM")
-        fd.revenue_growth = ratios.get("revenuePerShareTTM")
 
     ad = AnalystData()
     if pt:

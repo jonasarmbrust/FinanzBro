@@ -4,13 +4,11 @@ Stellt ein Demo-Portfolio mit realistischen Daten bereit,
 wenn keine API-Keys konfiguriert sind oder Parqet nicht erreichbar ist.
 """
 from models import (
-    AlphaVantageData,
     AnalystData,
     FearGreedData,
     FmpRating,
     FundamentalData,
     PortfolioPosition,
-    StocknearData,
     TechRecommendation,
     YFinanceData,
 )
@@ -88,22 +86,6 @@ def get_demo_fmp_ratings() -> dict[str, FmpRating]:
     }
 
 
-def get_demo_stocknear_data() -> dict[str, StocknearData]:
-    """Demo-Stocknear-Daten."""
-    return {
-        "AAPL": StocknearData(ai_score=7.2, analyst_consensus="Buy", technical_signal="Bullish"),
-        "MSFT": StocknearData(ai_score=8.5, analyst_consensus="Buy", technical_signal="Bullish"),
-        "NVDA": StocknearData(ai_score=9.1, analyst_consensus="Buy", technical_signal="Bullish"),
-        "GOOGL": StocknearData(ai_score=7.8, analyst_consensus="Buy", technical_signal="Bullish"),
-        "AMZN": StocknearData(ai_score=7.0, analyst_consensus="Buy", technical_signal="Neutral"),
-        "META": StocknearData(ai_score=7.5, analyst_consensus="Buy", technical_signal="Bullish"),
-        "TSLA": StocknearData(ai_score=4.2, analyst_consensus="Hold", technical_signal="Bearish"),
-        "ASML": StocknearData(ai_score=8.0, analyst_consensus="Buy", technical_signal="Bullish"),
-        "SAP": StocknearData(ai_score=6.8, analyst_consensus="Buy", technical_signal="Neutral"),
-        "AVGO": StocknearData(ai_score=8.3, analyst_consensus="Buy", technical_signal="Bullish"),
-        "CRM": StocknearData(ai_score=5.5, analyst_consensus="Hold", technical_signal="Neutral"),
-        "AMD": StocknearData(ai_score=7.6, analyst_consensus="Buy", technical_signal="Bullish"),
-    }
 
 
 def get_demo_tech_picks() -> list[TechRecommendation]:
@@ -135,22 +117,6 @@ def get_demo_yfinance_data() -> dict[str, YFinanceData]:
     }
 
 
-def get_demo_alphavantage_data() -> dict[str, AlphaVantageData]:
-    """Demo-Alpha-Vantage-Daten (Sentiment, RSI, MACD)."""
-    return {
-        "AAPL": AlphaVantageData(news_sentiment=0.15, rsi_14=58.3, macd_signal="Bullish"),
-        "MSFT": AlphaVantageData(news_sentiment=0.28, rsi_14=62.1, macd_signal="Bullish"),
-        "NVDA": AlphaVantageData(news_sentiment=0.42, rsi_14=71.5, macd_signal="Bullish"),
-        "GOOGL": AlphaVantageData(news_sentiment=0.18, rsi_14=55.8, macd_signal="Neutral"),
-        "AMZN": AlphaVantageData(news_sentiment=0.08, rsi_14=48.2, macd_signal="Neutral"),
-        "META": AlphaVantageData(news_sentiment=0.22, rsi_14=64.7, macd_signal="Bullish"),
-        "TSLA": AlphaVantageData(news_sentiment=-0.15, rsi_14=35.4, macd_signal="Bearish"),
-        "ASML": AlphaVantageData(news_sentiment=0.31, rsi_14=59.2, macd_signal="Bullish"),
-        "SAP": AlphaVantageData(news_sentiment=0.12, rsi_14=52.8, macd_signal="Neutral"),
-        "AVGO": AlphaVantageData(news_sentiment=0.35, rsi_14=67.4, macd_signal="Bullish"),
-        "CRM": AlphaVantageData(news_sentiment=0.05, rsi_14=44.6, macd_signal="Bearish"),
-        "AMD": AlphaVantageData(news_sentiment=0.25, rsi_14=61.3, macd_signal="Bullish"),
-    }
 
 
 def get_demo_fear_greed() -> FearGreedData:

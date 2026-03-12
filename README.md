@@ -36,18 +36,18 @@ FastAPI Backend (lokal / Cloud Run)
 
 | Faktor | Gewicht | Quelle |
 |---|---|---|
-| Quality (ROE, Margins, Debt) | 20% | FMP |
-| Valuation (P/E, P/B, PEG) | 15% | FMP |
+| Quality (ROE, Margins, Debt) | 19% | FMP |
 | Analyst Consensus + Kursziele | 15% | FMP (verifiziert via Track Record) |
-| Technical (RSI, SMA, MACD) | 10% | yfinance |
-| Growth (Revenue, Earnings) | 15% | FMP + yfinance |
-| Market Sentiment (Fear&Greed) | 10% | CNN |
-| Momentum (30d, 90d, 180d) | 5% | yfinance |
-| ESG Risk | 5% | yfinance |
-| Insider Trading | 5% | yfinance |
-| Quantitative (FMP Rating) | – | FMP (in Quality integriert) |
+| Valuation (P/E, EV/EBITDA, PEG) | 14% | FMP |
+| Technical (RSI, SMA, Momentum) | 13% | yfinance |
+| Growth (Revenue, Earnings YoY) | 11% | FMP + yfinance |
+| Quantitative (Altman Z, Piotroski) | 10% | FMP |
+| Market Sentiment (Fear&Greed) | 7% | CNN |
+| Momentum (90d, 180d) | 6% | yfinance |
+| Insider Trading | 3% | yfinance |
+| ESG Risk | 2% | yfinance |
 
-**Rating:** Buy (≥65), Hold (40–64), Sell (<40)
+**Rating:** Buy (≥68), Hold (40–67), Sell (<40)
 
 ## AI Features (Vertex AI / Gemini)
 
@@ -174,7 +174,7 @@ GCP_PROJECT_ID=...
 |-----|------|----------|
 | Full Analyse | 16:15 | Refresh + Scoring + AI Report |
 | Intraday Kurse | alle 15min (Mo-Fr) | yFinance Batch |
-| Weekly Digest | Sonntag 18:00 | Wöchentliche KI-Zusammenfassung |
+| Weekly Digest | Freitag 22:30 | Wöchentliche KI-Zusammenfassung |
 
 ## Projektstruktur
 

@@ -1,16 +1,16 @@
-"""FinanzBro - Scoring Engine v4
+"""FinanzBro - Scoring Engine v5
 
 Multi-Faktor Bewertungssystem fuer Aktien.
-9 Faktoren mit einheitlicher Prozent-Normalisierung.
+10 Faktoren mit einheitlicher Prozent-Normalisierung.
 
-v4 Aenderungen (gegenueber v3):
-  - 11 -> 9 Faktoren
-  - AlphaVantage und Stocknear entfernt
-  - FMP Rating entfernt (Black Box, dupliziert eigene Checks)
-  - Preisziel in Analysten-Score gemerged
-  - Unit-Normalisierung: alle %-Werte einheitlich (0.25 und 25 beide -> 25%)
-  - Net Margin nur noch in Qualitaet (nicht mehr doppelt in Growth)
-  - Echtes Earnings Growth YoY statt netIncomePerShare
+v5 Aenderungen (gegenueber v4):
+  - 9 -> 10 Faktoren (Momentum als separater Faktor)
+  - Gewichtung angepasst: quality 19%, valuation 14%, analyst 15%,
+    technical 13%, growth 11%, quant 10%, sentiment 7%, momentum 6%,
+    insider 3%, esg 2%
+  - Revenue Growth / Earnings Growth jetzt echte YoY-Wachstumsraten
+  - PEG Ratio direkt von FMP (kein manueller Proxy)
+  - _normalize_pct Schwellwert auf < 1.0 verschaerft
 """
 import logging
 from typing import Optional
@@ -118,7 +118,7 @@ def _normalize_pct(val: Optional[float]) -> Optional[float]:
     """
     if val is None:
         return None
-    if abs(val) < 5:  # Wahrscheinlich Dezimalformat (0.25)
+    if abs(val) < 1:  # Dezimalformat (z.B. 0.25 = 25%, 0.03 = 3%)
         return val * 100
     return val  # Bereits in % (25.0)
 
@@ -156,9 +156,9 @@ def calculate_score(
     sector: str = "",
     **kwargs,  # Ignoriere unbekannte Legacy-Parameter
 ) -> StockScore:
-    """Berechnet den Gesamtscore fuer eine Aktie (v4).
+    """Berechnet den Gesamtscore fuer eine Aktie (v5).
 
-    9 Faktoren, gewichteter Durchschnitt.
+    10 Faktoren, gewichteter Durchschnitt.
     Nur verfuegbare Faktoren werden beruecksichtigt (Rest skaliert hoch).
     """
     breakdown = ScoreBreakdown()
@@ -419,8 +419,9 @@ def _calc_quality_score(fd: FundamentalData) -> float:
     # Debt-to-Equity (lower is better) — Ratio, kein %
     if fd.debt_to_equity is not None:
         de = fd.debt_to_equity
-        # yfinance liefert D/E als Ratio * 100 (z.B. 150 statt 1.5)
-        if de > 10:
+        # FMP/yfinance liefert D/E als Ratio * 100 (z.B. 150 statt 1.5)
+        # Aber echte hohe D/E (Finanzsektor) koennen bei 10-30 liegen
+        if de > 50:
             de = de / 100  # Normalisieren: 150 -> 1.5
         if de < 0.3:
             scores.append(90)

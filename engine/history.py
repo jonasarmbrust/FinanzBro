@@ -26,6 +26,3 @@ def load_history(days: int = 90) -> list[dict]:
     return load_snapshots(days=days)
 
 
-# Re-export für Abwärtskompatibilität
-# (services/refresh.py importiert `from engine.history import save_snapshot`)
-save_snapshot = save_snapshot

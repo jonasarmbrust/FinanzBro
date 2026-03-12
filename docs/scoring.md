@@ -1,23 +1,24 @@
-# FinanzBro – Scoring Engine v4
+# FinanzBro – Scoring Engine v5
 
 ## Übersicht
 
-9-Faktor Multi-Analyse-System mit sektorbasierter Bewertung.
+10-Faktor Multi-Analyse-System mit sektorbasierter Bewertung.
 Jeder Faktor wird auf 0-100 normalisiert, gewichtet zusammengeführt.
 
 ## Faktoren & Gewichte
 
 | # | Faktor | Gewicht | Datenquelle | Beschreibung |
 |---|--------|---------|-------------|--------------|
-| 1 | **Quality** | 20% | FMP/yFinance | ROE, Gross Margin, Operating Margin, D/E, Current Ratio |
-| 2 | **Valuation** | 15% | FMP | P/E, EV/EBITDA, PEG, FCF Yield — **sektorbasiert** |
-| 3 | **Analyst** | 15% | FMP/yFinance | Konsens (60%) + Preisziel (40%), merged |
-| 4 | **Technical** | 15% | yFinance | RSI-14, SMA Cross, Momentum 30d, Price vs SMA50 |
-| 5 | **Growth** | 12% | FMP + yFinance | Revenue Growth, Earnings Growth YoY, ROIC |
+| 1 | **Quality** | 19% | FMP/yFinance | ROE, Gross Margin, Operating Margin, D/E, Current Ratio |
+| 2 | **Analyst** | 15% | FMP/yFinance | Konsens (60%) + Preisziel (40%), merged |
+| 3 | **Valuation** | 14% | FMP | P/E, EV/EBITDA, PEG, FCF Yield — **sektorbasiert** |
+| 4 | **Technical** | 13% | yFinance | RSI-14, SMA Cross, Momentum 30d, Price vs SMA50 |
+| 5 | **Growth** | 11% | FMP + yFinance | Revenue Growth YoY, Earnings Growth YoY, ROIC |
 | 6 | **Quantitative** | 10% | FMP | Altman Z-Score, Piotroski Score |
-| 7 | **Sentiment** | 8% | CNN | Fear & Greed Index (Markt-Level) |
-| 8 | **Insider** | 3% | yFinance | Insider Buy/Sell Ratio |
-| 9 | **ESG** | 2% | yFinance | ESG Risk Score |
+| 7 | **Sentiment** | 7% | CNN | Fear & Greed Index (Markt-Level) |
+| 8 | **Momentum** | 6% | yFinance | 90d + 180d Kurs-Momentum |
+| 9 | **Insider** | 3% | yFinance | Insider Buy/Sell Ratio |
+| 10 | **ESG** | 2% | yFinance | ESG Risk Score |
 
 **Summe Gewichte: 100%**
 
@@ -51,15 +52,17 @@ für Financials wäre es teuer:
 ## Confidence
 
 Basiert auf der Anzahl verfügbarer Faktoren:
-- 9/9 Faktoren → Confidence 1.0
-- 5/9 Faktoren → Confidence 0.56
+- 10/10 Faktoren → Confidence 1.0
+- 5/10 Faktoren → Confidence 0.5
 - 0 Faktoren → Confidence 0.0, automatisch HOLD mit Score 50
 
-## v4 Änderungen (gegenüber v3)
+## v5 Änderungen (gegenüber v4)
 
-- ~~FMP Rating~~ entfernt (Black Box, duplizierte eigene Checks)
-- ~~AlphaVantage~~ entfernt (Sentiment nur noch Fear&Greed)
-- Preisziel in Analyst-Score **gemerged** (60/40 Konsens/Preisziel)
-- Unit-Normalisierung: 0.25 und 25 → beide als 25%
-- Net Margin nur noch in **Quality** (nicht mehr doppelt in Growth)
-- Echtes **Earnings Growth YoY** aus yFinance statt netIncomePerShare
+- 9 → **10 Faktoren** (Momentum als separater Faktor)
+- Gewichtung angepasst (Quality 19%, Technical 13%, Growth 11%, etc.)
+- **Revenue Growth** und **Earnings Growth** jetzt echte YoY-Wachstumsraten
+  (FMP `income-statement-growth` statt `revenuePerShareTTM`)
+- **PEG Ratio** direkt von FMP (`pegRatioTTM`) statt manueller Berechnung
+- `_normalize_pct` Schwellwert verschärft (< 1.0 statt < 5.0)
+- D/E Normalisierung: Schwellwert > 50 (statt > 10) für Finanzsektor-Kompatibilität
+- Legacy-Models entfernt: `StocknearData`, `AlphaVantageData`
