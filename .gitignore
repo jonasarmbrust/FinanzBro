@@ -1,0 +1,40 @@
+# ========================
+# FinanzBro .gitignore
+# ========================
+
+# === Secrets & Konfiguration ===
+.env
+.env.*
+!.env.example
+
+# === Cache & persönliche Daten ===
+cache/
+Parqet/
+
+# === Python ===
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === OS ===
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# === Gemini / Agent Workspace ===
+.gemini/
+.agents/

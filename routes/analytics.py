@@ -1,0 +1,415 @@
+"""FinanzBro - Analytics API Routes.
+
+Endpunkte für erweiterte Analysen:
+  - Dividenden, Benchmark, Korrelation, Risk, Earnings, News,
+    Score-History, Movers (Gewinner/Verlierer), Heatmap
+"""
+import logging
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+
+from state import portfolio_data
+from config import settings
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+# ─────────────────────────────────────────────────────────────
+# Market Indices (Nasdaq, S&P 500, DAX)
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/api/market-indices")
+async def get_market_indices():
+    """Tagesaktuelle Werte der wichtigsten Indizes."""
+    indices = [
+        {"symbol": "^GSPC", "name": "S&P 500"},
+        {"symbol": "^IXIC", "name": "Nasdaq"},
+        {"symbol": "^GDAXI", "name": "DAX"},
+    ]
+    results = []
+
+    try:
+        import yfinance as yf
+        for idx in indices:
+            try:
+                t = yf.Ticker(idx["symbol"])
+                info = t.fast_info
+                price = getattr(info, "last_price", None)
+                prev_close = getattr(info, "previous_close", None)
+
+                if price and prev_close and prev_close > 0:
+                    change = price - prev_close
+                    change_pct = (change / prev_close) * 100
+                    results.append({
+                        "name": idx["name"],
+                        "symbol": idx["symbol"],
+                        "price": round(price, 2),
+                        "change": round(change, 2),
+                        "change_pct": round(change_pct, 2),
+                    })
+                else:
+                    # Fallback: 2-Tage-Historie
+                    hist = t.history(period="2d")
+                    if hist is not None and len(hist) >= 2:
+                        prev = float(hist["Close"].iloc[-2])
+                        curr = float(hist["Close"].iloc[-1])
+                        change = curr - prev
+                        change_pct = (change / prev) * 100 if prev > 0 else 0
+                        results.append({
+                            "name": idx["name"],
+                            "symbol": idx["symbol"],
+                            "price": round(curr, 2),
+                            "change": round(change, 2),
+                            "change_pct": round(change_pct, 2),
+                        })
+            except Exception as e:
+                logger.warning(f"Index {idx['name']} nicht verfügbar: {e}")
+    except Exception as e:
+        logger.error(f"Market-Indices fehlgeschlagen: {e}")
+
+    return results
+
+
+# ─────────────────────────────────────────────────────────────
+# #1: Dividenden-Tracker
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/api/dividends")
+async def get_dividends():
+    """Dividenden-Übersicht: Yield, jährliche Einnahmen, Prognose."""
+    summary = portfolio_data.get("summary")
+    if not summary or not summary.stocks:
+        return JSONResponse({"error": "Keine Daten"}, status_code=503)
+
+    from engine.analytics import calculate_dividend_summary
+    return calculate_dividend_summary(summary.stocks)
+
+
+# ─────────────────────────────────────────────────────────────
+# #3: Benchmark-Vergleich
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/api/benchmark")
+async def get_benchmark(symbol: str = "SPY", period: str = "6month"):
+    """Benchmark-Vergleich: Portfolio vs. Index.
+
+    Unterstützt: SPY (S&P 500), IWDA.AS (MSCI World), QQQ (Nasdaq)
+    """
+    if period not in ("1month", "3month", "6month", "1year"):
+        period = "6month"
+
+    days_map = {"1month": 30, "3month": 90, "6month": 180, "1year": 365}
+    days = days_map.get(period, 180)
+
+    try:
+        import yfinance as yf
+        from datetime import datetime, timedelta
+
+        # Benchmark-Daten
+        ticker = yf.Ticker(symbol)
+        end = datetime.now()
+        start = end - timedelta(days=days)
+        hist = ticker.history(start=start, end=end)
+
+        if hist is None or hist.empty:
+            return {"error": f"Keine Daten für {symbol}"}
+
+        closes = hist["Close"].dropna()
+        if len(closes) < 2:
+            return {"error": "Zu wenig Datenpunkte"}
+
+        first_price = float(closes.iloc[0])
+        benchmark_data = []
+        for date, price in closes.items():
+            pct = ((float(price) - first_price) / first_price) * 100
+            benchmark_data.append({
+                "date": date.strftime("%Y-%m-%d"),
+                "price": round(float(price), 2),
+                "return_pct": round(pct, 2),
+            })
+
+        # Portfolio-Performance aus History
+        from engine.history import load_history
+        portfolio_history = load_history(days=days)
+
+        portfolio_data_series = []
+        if portfolio_history and len(portfolio_history) >= 2:
+            first_val = portfolio_history[0].get("total_value", 1)
+            for entry in portfolio_history:
+                val = entry.get("total_value", 0)
+                pct = ((val - first_val) / first_val) * 100 if first_val > 0 else 0
+                portfolio_data_series.append({
+                    "date": entry["date"],
+                    "value": val,
+                    "return_pct": round(pct, 2),
+                })
+
+        return {
+            "benchmark_symbol": symbol,
+            "benchmark_name": _benchmark_name(symbol),
+            "period": period,
+            "benchmark": benchmark_data,
+            "portfolio": portfolio_data_series,
+        }
+
+    except Exception as e:
+        logger.error(f"Benchmark-Vergleich fehlgeschlagen: {e}")
+        return {"error": str(e)}
+
+
+def _benchmark_name(symbol: str) -> str:
+    names = {
+        "SPY": "S&P 500",
+        "IWDA.AS": "MSCI World",
+        "QQQ": "Nasdaq 100",
+        "^GDAXI": "DAX",
+    }
+    return names.get(symbol, symbol)
+
+
+# ─────────────────────────────────────────────────────────────
+# #4: Korrelationsmatrix
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/api/correlation")
+async def get_correlation():
+    """Korrelationsmatrix und Diversifikations-Score."""
+    summary = portfolio_data.get("summary")
+    if not summary or not summary.stocks:
+        return JSONResponse({"error": "Keine Daten"}, status_code=503)
+
+    try:
+        import yfinance as yf
+        from datetime import datetime, timedelta
+        from state import YFINANCE_ALIASES
+
+        tickers = [
+            s.position.ticker for s in summary.stocks
+            if s.position.ticker != "CASH"
+        ]
+
+        # Historische Preise für Korrelation laden
+        end = datetime.now()
+        start = end - timedelta(days=120)
+
+        price_data = {}
+        for ticker in tickers:
+            yf_ticker = YFINANCE_ALIASES.get(ticker, ticker)
+            try:
+                t = yf.Ticker(yf_ticker)
+                hist = t.history(start=start, end=end)
+                if hist is not None and not hist.empty:
+                    closes = hist["Close"].dropna().tolist()
+                    if len(closes) >= 20:
+                        price_data[ticker] = closes
+            except Exception:
+                continue
+
+        from engine.analytics import calculate_correlation_matrix
+        return calculate_correlation_matrix(price_data)
+
+    except Exception as e:
+        logger.error(f"Korrelationsmatrix fehlgeschlagen: {e}")
+        return {"error": str(e)}
+
+
+# ─────────────────────────────────────────────────────────────
+# #6: Earnings-Kalender
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/api/earnings-calendar")
+async def get_earnings_calendar():
+    """Nächste Earnings-Termine der Portfolio-Aktien."""
+    summary = portfolio_data.get("summary")
+    if not summary or not summary.stocks:
+        return JSONResponse({"error": "Keine Daten"}, status_code=503)
+
+    tickers = [
+        s.position.ticker for s in summary.stocks
+        if s.position.ticker != "CASH"
+    ]
+
+    try:
+        from fetchers.fmp import fetch_earnings_calendar
+        return await fetch_earnings_calendar(tickers)
+    except Exception as e:
+        logger.error(f"Earnings-Kalender fehlgeschlagen: {e}")
+        return []
+
+
+# ─────────────────────────────────────────────────────────────
+# #7: News pro Aktie
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/api/stock/{ticker}/news")
+async def get_stock_news(ticker: str, limit: int = 5):
+    """News für eine einzelne Aktie."""
+    try:
+        from fetchers.fmp import fetch_stock_news
+        return await fetch_stock_news(ticker.upper(), limit=limit)
+    except Exception as e:
+        logger.error(f"News fehlgeschlagen für {ticker}: {e}")
+        return []
+
+
+# ─────────────────────────────────────────────────────────────
+# #8: Portfolio-Risiko
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/api/risk")
+async def get_risk():
+    """Portfolio-Risikokennzahlen: Beta, VaR, Max Drawdown."""
+    summary = portfolio_data.get("summary")
+    if not summary or not summary.stocks:
+        return JSONResponse({"error": "Keine Daten"}, status_code=503)
+
+    try:
+        import yfinance as yf
+        from datetime import datetime, timedelta
+        from state import YFINANCE_ALIASES
+
+        # Berechne Portfolio-Returns für VaR
+        tickers = [
+            s.position.ticker for s in summary.stocks
+            if s.position.ticker != "CASH"
+        ]
+        total_value = sum(
+            s.position.current_value for s in summary.stocks
+            if s.position.ticker != "CASH"
+        )
+
+        end = datetime.now()
+        start = end - timedelta(days=180)
+
+        # Gewichtete Portfolio-Returns berechnen
+        all_returns = {}
+        for s in summary.stocks:
+            if s.position.ticker == "CASH":
+                continue
+            yf_ticker = YFINANCE_ALIASES.get(s.position.ticker, s.position.ticker)
+            try:
+                t = yf.Ticker(yf_ticker)
+                hist = t.history(start=start, end=end)
+                if hist is not None and not hist.empty:
+                    closes = hist["Close"].dropna()
+                    if len(closes) >= 20:
+                        rets = closes.pct_change().dropna().tolist()
+                        weight = s.position.current_value / total_value if total_value > 0 else 0
+                        all_returns[s.position.ticker] = (rets, weight)
+            except Exception:
+                continue
+
+        # Gewichtete Portfolio-Returns
+        portfolio_returns = []
+        if all_returns:
+            min_len = min(len(r[0]) for r in all_returns.values())
+            for i in range(min_len):
+                daily_ret = sum(
+                    rets[i] * weight
+                    for rets, weight in all_returns.values()
+                )
+                portfolio_returns.append(daily_ret)
+
+        from engine.analytics import calculate_portfolio_risk
+        return calculate_portfolio_risk(summary.stocks, portfolio_returns)
+
+    except Exception as e:
+        logger.error(f"Risiko-Berechnung fehlgeschlagen: {e}")
+        return {"error": str(e)}
+
+
+# ─────────────────────────────────────────────────────────────
+# #9: Score-Verlauf pro Aktie
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/api/stock/{ticker}/score-history")
+async def get_score_history(ticker: str, days: int = 30):
+    """Score-Verlauf aus der bestehenden Score-Historie."""
+    from engine.analysis import get_score_trend
+    trend = get_score_trend(ticker.upper(), days=days)
+    return trend
+
+
+# ─────────────────────────────────────────────────────────────
+# #13: Gewinner/Verlierer des Tages
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/api/movers")
+async def get_movers():
+    """Top 3 Gewinner und Verlierer des Tages."""
+    summary = portfolio_data.get("summary")
+    if not summary or not summary.stocks:
+        return {"winners": [], "losers": []}
+
+    stocks_with_daily = [
+        s for s in summary.stocks
+        if s.position.ticker != "CASH"
+        and s.position.daily_change_pct is not None
+    ]
+
+    if not stocks_with_daily:
+        return {"winners": [], "losers": []}
+
+    sorted_by_daily = sorted(
+        stocks_with_daily,
+        key=lambda s: s.position.daily_change_pct or 0,
+        reverse=True,
+    )
+
+    def _to_mover(s):
+        pos = s.position
+        daily_eur = pos.current_value * (pos.daily_change_pct or 0) / (100 + (pos.daily_change_pct or 0))
+        return {
+            "ticker": pos.ticker,
+            "name": pos.name,
+            "daily_pct": round(pos.daily_change_pct or 0, 2),
+            "daily_eur": round(daily_eur, 2),
+            "current_price": round(pos.current_price, 2),
+            "score": round(s.score.total_score, 1) if s.score else 0,
+            "rating": s.score.rating.value if s.score else "hold",
+        }
+
+    winners = [_to_mover(s) for s in sorted_by_daily[:3] if (s.position.daily_change_pct or 0) > 0]
+    losers = [_to_mover(s) for s in sorted_by_daily[-3:] if (s.position.daily_change_pct or 0) < 0]
+    losers.reverse()  # schlechtester zuerst
+
+    return {"winners": winners, "losers": losers}
+
+
+# ─────────────────────────────────────────────────────────────
+# #14: Portfolio-Heatmap
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/api/heatmap")
+async def get_heatmap():
+    """Treemap-Daten: Ticker, Gewicht, Tagesperformance, Score."""
+    summary = portfolio_data.get("summary")
+    if not summary or not summary.stocks:
+        return []
+
+    total_value = summary.total_value
+    if total_value <= 0:
+        return []
+
+    result = []
+    for s in summary.stocks:
+        if s.position.ticker == "CASH":
+            continue
+        pos = s.position
+        weight = (pos.current_value / total_value * 100) if total_value > 0 else 0
+        result.append({
+            "ticker": pos.ticker,
+            "name": pos.name,
+            "sector": pos.sector or "Unknown",
+            "weight": round(weight, 2),
+            "value": round(pos.current_value, 2),
+            "daily_pct": round(pos.daily_change_pct or 0, 2),
+            "score": round(s.score.total_score, 1) if s.score else 0,
+            "rating": s.score.rating.value if s.score else "hold",
+            "pnl_pct": round(pos.pnl_percent, 1),
+        })
+
+    result.sort(key=lambda x: x["value"], reverse=True)
+    return result

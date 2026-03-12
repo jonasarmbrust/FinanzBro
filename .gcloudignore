@@ -1,0 +1,14 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+cache/
+tests/
+.pytest_cache/
+.git/
+.env
+.env.*
+*.md
+.gemini/
+.agents/
+test_*.py

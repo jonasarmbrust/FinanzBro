@@ -1,0 +1,222 @@
+"""Tests für den AI Finance Agent."""
+import sys
+from pathlib import Path
+from unittest.mock import AsyncMock, patch, MagicMock
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import pytest
+from models import (
+    PortfolioSummary,
+    PortfolioPosition,
+    StockFullData,
+    StockScore,
+    ScoreBreakdown,
+    Rating,
+    FearGreedData,
+    AnalysisReport,
+    PositionAnalysis,
+    DataSourceStatus,
+)
+
+
+@pytest.fixture
+def sample_summary():
+    """Erstellt eine PortfolioSummary mit Testdaten."""
+    stocks = [
+        StockFullData(
+            position=PortfolioPosition(
+                ticker="AAPL", name="Apple Inc.", shares=10,
+                avg_cost=150.0, current_price=175.0, sector="Technology",
+            ),
+            score=StockScore(
+                ticker="AAPL", name="Apple Inc.", total_score=78.0,
+                rating=Rating.BUY, breakdown=ScoreBreakdown(quality_score=80),
+            ),
+            data_sources=DataSourceStatus(fmp=True, technical=True),
+        ),
+        StockFullData(
+            position=PortfolioPosition(
+                ticker="MSFT", name="Microsoft", shares=5,
+                avg_cost=300.0, current_price=350.0, sector="Technology",
+            ),
+            score=StockScore(
+                ticker="MSFT", name="Microsoft", total_score=55.0,
+                rating=Rating.HOLD, breakdown=ScoreBreakdown(quality_score=60),
+            ),
+            data_sources=DataSourceStatus(fmp=True),
+        ),
+        StockFullData(
+            position=PortfolioPosition(
+                ticker="INTC", name="Intel", shares=20,
+                avg_cost=40.0, current_price=30.0, sector="Technology",
+            ),
+            score=StockScore(
+                ticker="INTC", name="Intel", total_score=32.0,
+                rating=Rating.SELL, breakdown=ScoreBreakdown(quality_score=25),
+            ),
+            data_sources=DataSourceStatus(fmp=True, technical=True),
+        ),
+    ]
+
+    return PortfolioSummary(
+        total_value=4100.0,
+        total_cost=3800.0,
+        total_pnl=300.0,
+        total_pnl_percent=7.9,
+        num_positions=3,
+        stocks=stocks,
+        fear_greed=FearGreedData(value=65, label="Greed", source="CNN"),
+        daily_total_change=50.0,
+        daily_total_change_pct=1.2,
+    )
+
+
+@pytest.fixture
+def sample_report():
+    """Erstellt einen AnalysisReport mit Testdaten."""
+    return AnalysisReport(
+        analysis_level="full",
+        portfolio_score=55.0,
+        portfolio_rating=Rating.HOLD,
+        num_positions=3,
+        positions=[
+            PositionAnalysis(ticker="AAPL", name="Apple", score=78.0, rating=Rating.BUY,
+                             score_change=3.0, weight_in_portfolio=42.7),
+            PositionAnalysis(ticker="MSFT", name="Microsoft", score=55.0, rating=Rating.HOLD,
+                             score_change=-1.0, weight_in_portfolio=42.7),
+            PositionAnalysis(ticker="INTC", name="Intel", score=32.0, rating=Rating.SELL,
+                             score_change=-5.0, weight_in_portfolio=14.6),
+        ],
+        top_buys=[
+            PositionAnalysis(ticker="AAPL", name="Apple", score=78.0, rating=Rating.BUY,
+                             weight_in_portfolio=42.7),
+        ],
+        top_sells=[
+            PositionAnalysis(ticker="INTC", name="Intel", score=32.0, rating=Rating.SELL,
+                             weight_in_portfolio=14.6),
+        ],
+        biggest_changes=[
+            PositionAnalysis(ticker="INTC", name="Intel", score=32.0, score_change=-5.0, rating=Rating.SELL),
+            PositionAnalysis(ticker="AAPL", name="Apple", score=78.0, score_change=3.0, rating=Rating.BUY),
+        ],
+        avg_confidence=0.7,
+        data_quality={"total": 3, "fmp": 3, "technical": 2, "yfinance": 1, "fear_greed": 1},
+    )
+
+
+class TestBuildTelegramReport:
+    """Tests für die Report-Formatierung."""
+
+    def test_report_contains_portfolio_overview(self, sample_summary, sample_report):
+        from services.ai_agent import _build_telegram_report
+        text = _build_telegram_report(sample_summary, sample_report)
+
+        assert "FinanzBro Daily Report" in text
+        assert "Portfolio Übersicht" in text
+        assert "4,100.00 EUR" in text or "4.100,00" in text
+
+    def test_report_contains_all_positions(self, sample_summary, sample_report):
+        from services.ai_agent import _build_telegram_report
+        text = _build_telegram_report(sample_summary, sample_report)
+
+        assert "AAPL" in text
+        assert "MSFT" in text
+        assert "INTC" in text
+
+    def test_report_contains_top_buys(self, sample_summary, sample_report):
+        from services.ai_agent import _build_telegram_report
+        text = _build_telegram_report(sample_summary, sample_report)
+
+        assert "Top Performer" in text
+
+    def test_report_contains_watchlist(self, sample_summary, sample_report):
+        from services.ai_agent import _build_telegram_report
+        text = _build_telegram_report(sample_summary, sample_report)
+
+        assert "Watchlist" in text or "SELL" in text
+
+    def test_report_contains_score_changes(self, sample_summary, sample_report):
+        from services.ai_agent import _build_telegram_report
+        text = _build_telegram_report(sample_summary, sample_report)
+
+        assert "Veränderungen" in text
+
+    def test_report_contains_fear_greed(self, sample_summary, sample_report):
+        from services.ai_agent import _build_telegram_report
+        text = _build_telegram_report(sample_summary, sample_report)
+
+        assert "Fear & Greed" in text
+        assert "65" in text
+
+    def test_report_contains_ai_insights(self, sample_summary, sample_report):
+        from services.ai_agent import _build_telegram_report
+        text = _build_telegram_report(sample_summary, sample_report, ai_insights="Markt sieht bullish aus")
+
+        assert "AI Research Insights" in text
+        assert "bullish" in text
+
+    def test_report_without_ai_insights(self, sample_summary, sample_report):
+        from services.ai_agent import _build_telegram_report
+        text = _build_telegram_report(sample_summary, sample_report, ai_insights="")
+
+        assert "AI Research Insights" not in text
+
+    def test_report_without_analysis_report(self, sample_summary):
+        from services.ai_agent import _build_telegram_report
+        # Sollte nicht crashen ohne Report
+        text = _build_telegram_report(sample_summary, None)
+
+        assert "FinanzBro Daily Report" in text
+        assert "Alle Positionen" in text
+
+
+class TestHelpers:
+    """Tests für Hilfsfunktionen."""
+
+    def test_rating_icon(self):
+        from services.ai_agent import _rating_icon
+        assert _rating_icon(Rating.BUY) == "🟢"
+        assert _rating_icon(Rating.HOLD) == "🟡"
+        assert _rating_icon(Rating.SELL) == "🔴"
+
+    def test_fear_greed_emoji(self):
+        from services.ai_agent import _fear_greed_emoji
+        assert _fear_greed_emoji(10) == "😱"
+        assert _fear_greed_emoji(30) == "😟"
+        assert _fear_greed_emoji(50) == "😐"
+        assert _fear_greed_emoji(70) == "😊"
+        assert _fear_greed_emoji(90) == "🤑"
+
+    def test_sort_stocks_by_score(self, sample_summary):
+        from services.ai_agent import _sort_stocks_by_score
+        sorted_stocks = _sort_stocks_by_score(sample_summary.stocks)
+        scores = [s.score.total_score for s in sorted_stocks]
+        assert scores == sorted(scores, reverse=True)
+
+
+class TestRunDailyReport:
+    """Tests für den Agent-Hauptprozess."""
+
+    @pytest.mark.asyncio
+    async def test_run_daily_report_no_telegram(self):
+        from services.ai_agent import run_daily_report
+
+        with patch("services.ai_agent.settings") as mock_settings:
+            mock_settings.telegram_configured = False
+            await run_daily_report()
+            # Soll ohne Fehler durchlaufen
+
+    @pytest.mark.asyncio
+    async def test_run_daily_report_no_portfolio(self):
+        from services.ai_agent import run_daily_report
+
+        with patch("services.ai_agent.settings") as mock_settings, \
+             patch("services.telegram.send_message", new_callable=AsyncMock) as mock_send:
+            mock_settings.telegram_configured = True
+            mock_settings.TELEGRAM_BOT_TOKEN = "test"
+            mock_settings.TELEGRAM_CHAT_ID = "123"
+
+            # portfolio_data wird innerhalb der Funktion aus state importiert
+            with patch.dict("state.portfolio_data", {"summary": None}):
+                await run_daily_report()

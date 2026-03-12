@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanzBro – Portfolio Dashboard</title>
+    <meta name="description"
+        content="Intelligentes Aktienportfolio Dashboard mit Buy/Hold/Sell Bewertungen, Rebalancing-Empfehlungen und Tech-Aktien-Research.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="header-left">
+            <h1 class="logo">
+                <span class="logo-icon">📊</span>
+                <span class="logo-text">FinanzBro</span>
+            </h1>
+            <span class="demo-badge" id="demoBadge" style="display:none;">DEMO</span>
+        </div>
+        <div class="header-center">
+            <div class="portfolio-value" id="portfolioValue">
+                <span class="value-label">Portfoliowert</span>
+                <span class="value-amount" id="totalValue">$0.00</span>
+            </div>
+            <div class="portfolio-pnl" id="portfolioPnl">
+                <span class="pnl-amount" id="totalPnl">+$0.00</span>
+                <span class="pnl-percent" id="totalPnlPct">(+0.0%)</span>
+            </div>
+            <div class="portfolio-pnl daily-change" id="dailyChange">
+                <span class="pnl-label">Heute:</span>
+                <span class="pnl-amount" id="dailyPnl">€0.00</span>
+                <span class="pnl-percent" id="dailyPnlPct">(0.0%)</span>
+                <span class="header-indices" id="headerIndices"></span>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="last-update" id="lastUpdate">–</span>
+            <button class="btn-theme" id="themeToggle" onclick="toggleTheme()"
+                title="Farbschema wechseln">🌙</button>
+            <button class="btn-currency" id="currencyToggle" onclick="toggleCurrency()"
+                title="Währung wechseln">EUR</button>
+            <button class="btn-refresh btn-parqet" id="btnUpdateParqet" onclick="updateParqet()"
+                title="Parqet-Positionen + aktuelle Kurse laden (~10s)">
+                <span class="refresh-icon">🔄</span> Update Parqet
+            </button>
+            <button class="btn-refresh" id="btnRefresh" onclick="refreshData()"
+                title="Komplette Analyse: Fundamentals, Scores, Analysten, Tech Picks etc.">
+                <span class="refresh-icon">🔬</span> Komplette Analyse
+            </button>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="overview" onclick="switchTab('overview')">
+            <span class="tab-icon">📈</span> Übersicht
+        </button>
+        <button class="tab" data-tab="analyse" onclick="switchTab('analyse')">
+            <span class="tab-icon">📊</span> Analyse
+        </button>
+        <button class="tab" data-tab="rebalancing" onclick="switchTab('rebalancing')">
+            <span class="tab-icon">⚖️</span> Rebalancing
+        </button>
+        <button class="tab" data-tab="techpicks" onclick="switchTab('techpicks')">
+            <span class="tab-icon">🚀</span> Tech Picks
+        </button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Loading State -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="spinner"></div>
+            <p>Daten werden geladen...</p>
+        </div>
+
+        <!-- Tab: Overview -->
+        <section class="tab-content active" id="tab-overview">
+            <!-- Stats Row -->
+            <div class="stats-row" id="statsRow">
+                <div class="stat-card">
+                    <span class="stat-label">Positionen</span>
+                    <span class="stat-value" id="statPositions">0</span>
+                </div>
+                <div class="stat-card stat-buy">
+                    <span class="stat-label">🟢 Buy</span>
+                    <span class="stat-value" id="statBuy">0</span>
+                </div>
+                <div class="stat-card stat-hold">
+                    <span class="stat-label">🟡 Hold</span>
+                    <span class="stat-value" id="statHold">0</span>
+                </div>
+                <div class="stat-card stat-sell">
+                    <span class="stat-label">🔴 Sell</span>
+                    <span class="stat-value" id="statSell">0</span>
+                </div>
+            </div>
+
+            <!-- Movers: Gewinner/Verlierer -->
+            <div class="analyse-row" id="moversSection">
+                <div class="movers-card winners-card">
+                    <h3 class="section-title">🟢 Tagesgewinner</h3>
+                    <div id="winnersContainer"></div>
+                </div>
+                <div class="movers-card losers-card">
+                    <h3 class="section-title">🔴 Tagesverlierer</h3>
+                    <div id="losersContainer"></div>
+                </div>
+            </div>
+
+            <!-- Portfolio Heatmap -->
+            <div class="chart-card" style="margin-bottom:1rem;">
+                <h3 class="chart-title">🗺️ Portfolio-Heatmap</h3>
+                <div class="heatmap-container" id="heatmapContainer"></div>
+            </div>
+
+            <!-- Portfolio Table -->
+            <div class="table-card">
+                <div class="table-header">
+                    <h3 class="table-title">Portfolio-Positionen</h3>
+                    <div class="table-controls">
+                        <div class="sort-buttons">
+                            <span class="sort-label">Sortieren:</span>
+                            <button class="sort-btn" id="sortBtn-name" onclick="sortTable('name')">Name</button>
+                            <button class="sort-btn" id="sortBtn-price" onclick="sortTable('price')">Kurs</button>
+                            <button class="sort-btn" id="sortBtn-cost" onclick="sortTable('cost')">Einstand</button>
+                            <button class="sort-btn" id="sortBtn-daily" onclick="sortTable('daily')">Heute</button>
+                            <button class="sort-btn active" id="sortBtn-score"
+                                onclick="sortTable('score')">Score</button>
+                        </div>
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" onclick="filterTable('all', this)">Alle</button>
+                            <button class="filter-btn" onclick="filterTable('buy', this)">Buy</button>
+                            <button class="filter-btn" onclick="filterTable('hold', this)">Hold</button>
+                            <button class="filter-btn" onclick="filterTable('sell', this)">Sell</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="portfolio-table" id="portfolioTable">
+                        <thead>
+                            <tr>
+                                <th class="sortable" onclick="sortTable('name')">Aktie <span class="sort-arrow"
+                                        id="sort-name"></span></th>
+                                <th class="sortable" onclick="sortTable('price')">Kurs <span class="sort-arrow"
+                                        id="sort-price"></span></th>
+                                <th class="sortable" onclick="sortTable('cost')">Einstand <span class="sort-arrow"
+                                        id="sort-cost"></span></th>
+                                <th class="sortable" onclick="sortTable('daily')">Heute <span class="sort-arrow"
+                                        id="sort-daily"></span></th>
+                                <th class="sortable" onclick="sortTable('shares')">Stk. <span class="sort-arrow"
+                                        id="sort-shares"></span></th>
+                                <th class="sortable" onclick="sortTable('value')">Wert <span class="sort-arrow"
+                                        id="sort-value"></span></th>
+                                <th class="sortable" onclick="sortTable('pnl')">P&L <span class="sort-arrow"
+                                        id="sort-pnl"></span></th>
+                                <th class="sortable" onclick="sortTable('score')">Score <span class="sort-arrow"
+                                        id="sort-score"></span></th>
+                                <th>Rating</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portfolioTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab: Analyse -->
+        <section class="tab-content" id="tab-analyse">
+            <!-- Sektor-Allokation + Risiko -->
+            <div class="analyse-row">
+                <div class="chart-card analyse-wide">
+                    <h3 class="chart-title">🏗️ Sektor-Allokation</h3>
+                    <div class="chart-container">
+                        <canvas id="sectorChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card analyse-narrow">
+                    <h3 class="chart-title">🛡️ Risiko-Profil</h3>
+                    <div id="riskContainer"></div>
+                </div>
+            </div>
+
+            <!-- Benchmark + Dividenden -->
+            <div class="analyse-row">
+                <div class="chart-card analyse-wide">
+                    <h3 class="chart-title">📈 Performance vs. Benchmark</h3>
+                    <div class="benchmark-controls" id="benchmarkControls">
+                        <select id="benchmarkSymbol" onchange="loadBenchmark()">
+                            <option value="SPY">S&P 500</option>
+                            <option value="IWDA.AS">MSCI World</option>
+                            <option value="QQQ">Nasdaq 100</option>
+                        </select>
+                        <select id="benchmarkPeriod" onchange="loadBenchmark()">
+                            <option value="3month">3 Monate</option>
+                            <option value="6month" selected>6 Monate</option>
+                            <option value="1year">1 Jahr</option>
+                        </select>
+                    </div>
+                    <div style="height:280px;position:relative;">
+                        <canvas id="benchmarkChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card analyse-narrow">
+                    <h3 class="chart-title">💰 Dividenden</h3>
+                    <div id="dividendContainer"></div>
+                </div>
+            </div>
+
+            <!-- Korrelation + Earnings -->
+            <div class="analyse-row">
+                <div class="chart-card analyse-wide">
+                    <h3 class="chart-title">🔗 Korrelationsmatrix</h3>
+                    <div id="correlationContainer"></div>
+                </div>
+                <div class="chart-card analyse-narrow">
+                    <h3 class="chart-title">📅 Earnings-Kalender</h3>
+                    <div id="earningsContainer"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab: Rebalancing -->
+        <section class="tab-content" id="tab-rebalancing">
+            <div class="rebalancing-header">
+                <h2 class="section-title">⚖️ Rebalancing-Empfehlungen</h2>
+                <p class="rebalancing-summary" id="rebalancingSummary">Wird berechnet...</p>
+            </div>
+            <div class="rebalancing-cards" id="rebalancingCards">
+            </div>
+        </section>
+
+        <!-- Tab: Tech Picks -->
+        <section class="tab-content" id="tab-techpicks">
+            <div class="techpicks-header">
+                <h2 class="section-title">🚀 Tägliche Tech-Empfehlungen</h2>
+                <p class="techpicks-subtitle">Aktien aus dem Technologie-Sektor mit hohem Potenzial</p>
+            </div>
+            <div class="techpicks-grid" id="techPicksGrid">
+            </div>
+        </section>
+    </main>
+
+    <!-- Stock Detail Modal -->
+    <div class="modal-overlay" id="stockModal" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal()">✕</button>
+            <div class="modal-header" id="modalHeader">
+                <h2 class="modal-title" id="modalTitle">–</h2>
+                <div class="modal-rating" id="modalRating">–</div>
+            </div>
+            <div class="modal-body" id="modalBody">
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
