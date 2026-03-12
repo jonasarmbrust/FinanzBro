@@ -17,6 +17,25 @@ from models import EarningsInsight
 
 logger = logging.getLogger(__name__)
 
+# Feature 1: Structured Output Schema
+EARNINGS_RESPONSE_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "ticker": {"type": "string"},
+            "status": {
+                "type": "string",
+                "enum": ["reported", "upcoming", "none"],
+            },
+            "quarter": {"type": "string"},
+            "beat": {"type": "boolean", "nullable": True},
+            "key_takeaway": {"type": "string", "description": "Max 80 Zeichen, Deutsch"},
+        },
+        "required": ["ticker", "status", "quarter", "key_takeaway"],
+    },
+}
+
 
 async def analyze_earnings(tickers: list[str]) -> list[EarningsInsight]:
     """Analysiert Earnings für die angegebenen Ticker.
@@ -43,24 +62,23 @@ async def analyze_earnings(tickers: list[str]) -> list[EarningsInsight]:
             "Analysiere die letzten oder nächsten Quartalsergebnisse (Earnings) "
             f"für folgende Aktien: {ticker_list}\n\n"
             "Für jede Aktie:\n"
-            "- Wurden die letzten Earnings bereits veröffentlicht? Wenn ja, "
-            "wurden die Erwartungen übertroffen (beat) oder verfehlt (miss)?\n"
-            "- Was war das wichtigste Ergebnis/die wichtigste Aussage?\n"
-            "- Wann sind die nächsten Earnings (falls noch nicht reported)?\n\n"
-            "Antworte NUR als JSON-Array im folgenden Format:\n"
-            '[{"ticker": "AAPL", "status": "reported", "quarter": "Q1 2026", '
-            '"beat": true, "key_takeaway": "Revenue +8%, Services-Rekord"}, ...]\n\n'
-            "status ist 'reported' (kürzlich veröffentlicht), 'upcoming' (bald), "
-            "oder 'none' (keine relevanten Daten).\n"
-            "beat ist true/false/null.\n"
-            "key_takeaway: max 80 Zeichen, auf Deutsch.\n"
-            "Kein Markdown, nur das JSON-Array."
+            "- Wurden die letzten Earnings bereits veröffentlicht? Beat oder miss?\n"
+            "- Was war das wichtigste Ergebnis?\n"
+            "- Wann sind die nächsten Earnings?\n\n"
+            "status: 'reported', 'upcoming', oder 'none'.\n"
+            "beat: true/false/null.\n"
+            "key_takeaway: max 80 Zeichen, auf Deutsch."
         )
+
+        # Structured Output: Gemini garantiert valides JSON-Array
+        config = get_grounded_config()
+        config["response_mime_type"] = "application/json"
+        config["response_schema"] = EARNINGS_RESPONSE_SCHEMA
 
         response = client.models.generate_content(
             model="gemini-2.5-pro",
             contents=prompt,
-            config=get_grounded_config(),
+            config=config,
         )
 
         if not response.text:

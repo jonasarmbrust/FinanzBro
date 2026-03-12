@@ -15,6 +15,18 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
+# Feature 1: Structured Output — Dynamisches Schema pro Anfrage
+def _build_commentary_schema(tickers: list[str]) -> dict:
+    """Erstellt ein JSON-Schema mit Ticker-Feldern."""
+    props = {}
+    for t in tickers:
+        props[t] = {"type": "string", "description": f"Kommentar für {t} (max 150 Zeichen)"}
+    return {
+        "type": "object",
+        "properties": props,
+        "required": tickers,
+    }
+
 
 async def generate_score_commentaries(
     stocks: list,  # list[StockFullData]
@@ -70,14 +82,19 @@ async def generate_score_commentaries(
             "auf Deutsch, der den Score einordnet und die wichtigsten Treiber nennt.\n\n"
             "Aktien:\n"
             + "\n".join(stock_lines)
-            + "\n\n"
-            "Antworte EXAKT im JSON-Format: {\"TICKER\": \"Kommentar\", ...}\n"
-            "Kein Markdown, keine Erklärung, nur das JSON."
         )
+
+        # Structured Output: Schema mit exakten Ticker-Feldern
+        commentary_tickers = [s.position.ticker for s in candidates]
+        schema = _build_commentary_schema(commentary_tickers)
 
         response = client.models.generate_content(
             model="gemini-2.0-flash",
             contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": schema,
+            },
         )
 
         if not response.text:

@@ -1,11 +1,21 @@
-"""FinanzBro - AI Trade Advisor Tests."""
+"""FinanzBro - AI Trade Advisor Tests v2.
+
+Tests für:
+  - Portfolio Context Builder
+  - Function Calling Tool-Definitionen & Execution
+  - Response Parsing (Structured Output)
+  - Error Handling (kein Gemini konfiguriert)
+"""
+import json
 import pytest
 from unittest.mock import patch, MagicMock
 
 from services.trade_advisor import (
     _build_portfolio_context,
-    _build_advisor_prompt,
+    _build_tool_declarations,
+    _execute_tool_call,
     _parse_ai_response,
+    ADVISOR_RESPONSE_SCHEMA,
 )
 
 
@@ -99,46 +109,95 @@ class TestBuildPortfolioContext:
 
 
 # ─────────────────────────────────────────────────────────────
-# Tests: Prompt Builder
+# Tests: Function Calling Tools (Feature 2)
 # ─────────────────────────────────────────────────────────────
 
-class TestBuildAdvisorPrompt:
-    def test_includes_ticker_and_action(self):
-        prompt = _build_advisor_prompt(
-            ticker="NVDA", action="buy", amount_eur=2000,
-            score_info={"total_score": 75, "rating": "buy", "confidence": 0.8, "breakdown": {}},
-            portfolio_ctx={"total_value": 10000, "num_positions": 3, "total_pnl_pct": 15,
-                           "sector_distribution": {}, "top_positions": [], "impact": {}},
-            extra_context=None,
-        )
+class TestToolDeclarations:
+    def test_has_three_tools(self):
+        """Feature 2: Should define 3 callable tools."""
+        tools = _build_tool_declarations()
+        assert len(tools) == 3
 
-        assert "NVDA" in prompt
-        assert "KAUF" in prompt
-        assert "2.000 EUR" in prompt or "2,000 EUR" in prompt
+    def test_tool_names(self):
+        tools = _build_tool_declarations()
+        names = {t["name"] for t in tools}
+        assert "get_stock_score" in names
+        assert "get_portfolio_overview" in names
+        assert "get_sector_impact" in names
 
-    def test_includes_external_context(self):
-        prompt = _build_advisor_prompt(
-            ticker="NVDA", action="buy", amount_eur=None,
-            score_info={"total_score": None, "rating": "unknown", "confidence": 0},
-            portfolio_ctx={"total_value": 10000, "num_positions": 3, "total_pnl_pct": 15,
-                           "sector_distribution": {}, "top_positions": [], "impact": {}},
-            extra_context="Goldman Sachs hat NVDA auf Buy hochgestuft",
-        )
+    def test_tools_have_parameters(self):
+        tools = _build_tool_declarations()
+        for tool in tools:
+            assert "name" in tool
+            assert "description" in tool
+            assert "parameters" in tool
 
-        assert "Goldman Sachs" in prompt
-        assert "EXTERNE QUELLEN" in prompt
 
-    def test_prompt_requests_json(self):
-        prompt = _build_advisor_prompt(
-            ticker="AAPL", action="sell", amount_eur=None,
-            score_info={"total_score": 40, "rating": "sell", "confidence": 0.6, "breakdown": {}},
-            portfolio_ctx={"total_value": 10000, "num_positions": 3, "total_pnl_pct": 15,
-                           "sector_distribution": {}, "top_positions": [], "impact": {}},
-            extra_context=None,
-        )
+class TestToolExecution:
+    def test_get_stock_score(self):
+        score_info = {"total_score": 75, "rating": "buy"}
+        result = _execute_tool_call("get_stock_score", {"ticker": "AAPL"}, score_info, {})
+        parsed = json.loads(result)
+        assert parsed["total_score"] == 75
+        assert parsed["rating"] == "buy"
 
-        assert "JSON" in prompt
-        assert '"recommendation"' in prompt
+    def test_get_portfolio_overview(self):
+        portfolio_ctx = {
+            "total_value": 10000,
+            "num_positions": 5,
+            "total_pnl_pct": 12.5,
+            "fear_greed": 55,
+            "fear_greed_label": "Greed",
+            "sector_distribution": {"Tech": 40, "Health": 30},
+            "top_positions": [{"ticker": "AAPL"}, {"ticker": "MSFT"}],
+        }
+        result = _execute_tool_call("get_portfolio_overview", {}, {}, portfolio_ctx)
+        parsed = json.loads(result)
+        assert parsed["total_value"] == 10000
+        assert parsed["num_positions"] == 5
+        assert "Tech" in parsed["sector_distribution"]
+
+    def test_get_sector_impact(self):
+        portfolio_ctx = {
+            "impact": {
+                "sector": "Technology",
+                "sector_weight_before": 40.0,
+                "sector_weight_after": 45.0,
+            },
+        }
+        result = _execute_tool_call("get_sector_impact", {}, {}, portfolio_ctx)
+        parsed = json.loads(result)
+        assert parsed["sector"] == "Technology"
+        assert parsed["sector_weight_after"] == 45.0
+
+    def test_get_sector_impact_no_data(self):
+        result = _execute_tool_call("get_sector_impact", {}, {}, {"impact": {}})
+        parsed = json.loads(result)
+        assert "info" in parsed
+
+    def test_unknown_tool(self):
+        result = _execute_tool_call("unknown_tool", {}, {}, {})
+        parsed = json.loads(result)
+        assert "error" in parsed
+
+
+# ─────────────────────────────────────────────────────────────
+# Tests: Structured Output Schema (Feature 1)
+# ─────────────────────────────────────────────────────────────
+
+class TestAdvisorSchema:
+    def test_schema_has_required_fields(self):
+        assert "properties" in ADVISOR_RESPONSE_SCHEMA
+        props = ADVISOR_RESPONSE_SCHEMA["properties"]
+        assert "recommendation" in props
+        assert "confidence" in props
+        assert "summary" in props
+        assert "risks" in props
+
+    def test_recommendation_has_enum(self):
+        rec = ADVISOR_RESPONSE_SCHEMA["properties"]["recommendation"]
+        assert "enum" in rec
+        assert set(rec["enum"]) == {"buy", "hold", "reduce", "avoid"}
 
 
 # ─────────────────────────────────────────────────────────────

@@ -278,6 +278,8 @@ class RebalancingAction(BaseModel):
     score: float = 0.0             # Aktueller Score
     score_change: Optional[float] = None  # Seit letzter Analyse
     reasons: list[str] = []        # Detaillierte Gründe
+    # v3: Conviction
+    conviction: str = ""           # "high", "mid", "low"
 
 
 class RebalancingAdvice(BaseModel):
@@ -291,6 +293,15 @@ class RebalancingAdvice(BaseModel):
     total_buy_amount: float = 0.0      # Gesamter Kaufbetrag EUR
     total_sell_amount: float = 0.0     # Gesamter Verkaufsbetrag EUR
     net_rebalance: float = 0.0         # Netto-Differenz
+    # v3: Cash & Health
+    cash_current: float = 0.0          # Aktuelles Cash in EUR
+    cash_current_pct: float = 0.0      # Aktuelle Cash-Quote %
+    cash_target_pct: float = 5.0       # Ziel Cash-Quote %
+    cash_reserve: float = 0.0          # Minimum Cash-Reserve EUR
+    available_to_invest: float = 0.0   # Cash abzgl. Reserve EUR
+    health_score: float = 0.0          # Portfolio-Health 0-100
+    health_details: dict = {}          # Aufschlüsselung der Health-Categories
+
 
 
 class TechRecommendation(BaseModel):

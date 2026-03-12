@@ -1,6 +1,6 @@
 # 📊 FinanzBro – Intelligentes Portfolio Dashboard
 
-Echtzeit-Portfolio-Dashboard mit Multi-Faktor-Scoring, automatischem Rebalancing und AI-gestützter Analyse.  
+Echtzeit-Portfolio-Dashboard mit Multi-Faktor-Scoring, Conviction-basiertem Rebalancing, AI Trade Advisor (Function Calling) und Gemini Structured Output.  
 Läuft lokal und auf **Google Cloud Run**.
 
 ## Architektur
@@ -53,12 +53,32 @@ FastAPI Backend (lokal / Cloud Run)
 
 | Feature | Modell | Beschreibung |
 |---------|--------|--------------|
-| Score-Kommentare | Flash | KI-Kommentar pro Aktie bei jedem Refresh |
-| Earnings-Analyse | Pro + Grounding | `/earnings` — Echtzeit-Earnings via Search |
+| **AI Trade Advisor** | Pro + Grounding + **Function Calling** | 🧠 Agentischer Advisor — Gemini ruft selbst Tools auf |
+| Score-Kommentare | Flash + **Structured Output** | KI-Kommentar pro Aktie bei jedem Refresh |
+| Earnings-Analyse | Pro + Grounding + **Structured Output** | `/earnings` — Echtzeit-Earnings via Search |
 | Portfolio-Chat | Pro + Grounding | Freitext-Fragen in Telegram |
 | Weekly Digest | Flash | Wöchentlicher Summary (Sonntag 18:00) |
 | Risiko-Szenarien | Pro + Grounding | `/risk` — AI-basierte Stress-Analyse |
 | Performance Attribution | Engine | P&L nach Sektor, Top/Flop, Herfindahl-Index |
+
+### Function Calling (Trade Advisor)
+Gemini 2.5 Pro hat Zugriff auf 3 Tools und entscheidet selbst, welche Daten benötigt werden:
+- `get_stock_score(ticker)` — 10-Faktor-Score berechnen
+- `get_portfolio_overview()` — Portfolio-Kontext abrufen
+- `get_sector_impact(ticker, action, amount)` — Sektor-Impact simulieren
+
+### Structured Output
+Alle JSON-AI-Services nutzen `response_schema` — Gemini garantiert valides JSON.
+
+## Rebalancing Engine v3 (`engine/rebalancer.py`)
+
+| Feature | Beschreibung |
+|---------|-------------|
+| Cash-Reserve (R1) | Min. 5% Cash wird nie investiert |
+| Gesamt-Portfolio-Basis (R2) | `total_value` inkl. Cash → realistische Gewichte |
+| Investierbares Cash (R3) | Kaufempfehlungen auf verfügbares Cash begrenzt |
+| Conviction Sizing (R4) | High (≥70): 1.5×, Mid (45-69): 1.0×, Low (<45): 0.6× |
+| Portfolio-Health-Score (R5) | 0-100 Score: HHI, Sektor, Beta, Qualität, Positions-Count |
 
 ## Telegram Bot (`/help` für alle Befehle)
 
@@ -126,7 +146,6 @@ python main.py  # → http://localhost:8000
 
 ### Cloud Run
 ```bash
-python -m pytest tests/ -q                    # 227 Tests
 gcloud run deploy finanzbro --source . \
   --region europe-west1 \
   --update-env-vars ENVIRONMENT=production,GCP_PROJECT_ID=job-automation-jonas
@@ -194,8 +213,9 @@ FinanzBro/
 │   ├── telegram.py      # Telegram API
 │   ├── telegram_bot.py  # Telegram Bot (Command-Handler)
 │   ├── vertex_ai.py     # Gemini Client + Context Caching
-│   ├── earnings_ai.py   # Earnings-Analyse (Gemini Pro)
-│   ├── score_commentary.py  # AI Score-Kommentare (Flash)
+│   ├── trade_advisor.py # AI Trade Advisor (Function Calling + Structured Output)
+│   ├── earnings_ai.py   # Earnings-Analyse (Structured Output)
+│   ├── score_commentary.py  # AI Score-Kommentare (Structured Output)
 │   ├── weekly_digest.py # Wöchentlicher Digest (Flash)
 │   ├── tech_radar_ai.py # Tech-Empfehlungen (AI)
 │   ├── analyst_tracker.py   # Analysten Track Record
@@ -212,5 +232,5 @@ FinanzBro/
 │   ├── index.html       # Dashboard UI
 │   ├── app.js           # Frontend-Logic
 │   └── styles.css       # Styling
-└── tests/               # 227 pytest Tests
+└── tests/               # 253 pytest Tests
 ```

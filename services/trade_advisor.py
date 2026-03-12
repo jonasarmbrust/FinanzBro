@@ -1,10 +1,14 @@
-"""FinanzBro - AI Trade Advisor.
+"""FinanzBro - AI Trade Advisor v2.
 
 Evaluiert Kauf/Verkauf/Aufstocken-Entscheidungen mit:
   - Gemini 2.5 Pro (AI-Analyse + Google Search Grounding)
-  - 10-Faktor Scoring-Engine (live oder aus Cache)
-  - Portfolio-Kontext (Sektoren, Gewichtung, Diversifikation)
+  - Function Calling: Gemini ruft selbst Score/Portfolio/Market-Tools auf
+  - Structured Output: Garantiert valides JSON-Response
   - Optionale externe Quellen (Analysten, Artikel, User-Notizen)
+
+v2 Änderungen:
+  Feature 1: Structured Output (response_schema)
+  Feature 2: Function Calling (Gemini entscheidet welche Daten benötigt werden)
 """
 import json
 import logging
@@ -21,7 +25,7 @@ async def evaluate_trade(
     amount_eur: Optional[float] = None,
     extra_context: Optional[str] = None,
 ) -> dict:
-    """Evaluiert eine Trade-Entscheidung mit AI + Portfolio-Kontext.
+    """Evaluiert eine Trade-Entscheidung mit AI + Function Calling.
 
     Args:
         ticker: Aktien-Ticker (z.B. "NVDA", "AAPL")
@@ -52,25 +56,19 @@ async def evaluate_trade(
     if action not in ("buy", "sell", "increase"):
         action = "buy"
 
-    # 1. Score berechnen (live oder aus Cache)
+    # Feature 2: Pre-compute data that tools will return
     score_info = await _get_or_calculate_score(ticker, summary)
-
-    # 2. Portfolio-Kontext aufbauen
     portfolio_ctx = _build_portfolio_context(summary, ticker, action, amount_eur)
 
-    # 3. Gemini-Prompt erstellen
-    prompt = _build_advisor_prompt(
-        ticker=ticker,
-        action=action,
-        amount_eur=amount_eur,
-        score_info=score_info,
-        portfolio_ctx=portfolio_ctx,
-        extra_context=extra_context,
-    )
-
-    # 4. AI-Analyse via Gemini 2.5 Pro
     try:
-        result = await _call_gemini(prompt)
+        result = await _call_gemini_with_tools(
+            ticker=ticker,
+            action=action,
+            amount_eur=amount_eur,
+            score_info=score_info,
+            portfolio_ctx=portfolio_ctx,
+            extra_context=extra_context,
+        )
         result["ticker"] = ticker
         result["action"] = action
         result["amount_eur"] = amount_eur
@@ -95,7 +93,6 @@ async def evaluate_trade(
 
 async def _get_or_calculate_score(ticker: str, summary) -> dict:
     """Holt Score aus Portfolio-Cache oder berechnet ihn live."""
-    # Prüfe ob Ticker im Portfolio ist
     for stock in summary.stocks:
         if stock.position.ticker == ticker and stock.score:
             s = stock.score
@@ -181,14 +178,12 @@ def _build_portfolio_context(summary, ticker: str, action: str, amount_eur: Opti
     total = summary.total_value or 1
     stocks = [s for s in summary.stocks if s.position.ticker != "CASH"]
 
-    # Sektor-Verteilung
     sectors = {}
     for s in stocks:
         sec = s.position.sector or "Unknown"
         sectors[sec] = sectors.get(sec, 0) + s.position.current_value
     sector_pcts = {k: round(v / total * 100, 1) for k, v in sectors.items()}
 
-    # Aktuelle Positionen (Top 10 nach Gewicht)
     positions = []
     for s in sorted(stocks, key=lambda x: x.position.current_value, reverse=True)[:10]:
         positions.append({
@@ -201,7 +196,6 @@ def _build_portfolio_context(summary, ticker: str, action: str, amount_eur: Opti
             "sector": s.position.sector,
         })
 
-    # Impact-Simulation
     impact = {}
     if amount_eur and amount_eur > 0:
         target_ticker_sector = None
@@ -209,15 +203,11 @@ def _build_portfolio_context(summary, ticker: str, action: str, amount_eur: Opti
             if s.position.ticker == ticker:
                 target_ticker_sector = s.position.sector
                 break
-
         new_total = total + amount_eur if action != "sell" else total - amount_eur
         if new_total > 0 and target_ticker_sector:
             old_sector_pct = sector_pcts.get(target_ticker_sector, 0)
             sector_value = sectors.get(target_ticker_sector, 0)
-            if action == "sell":
-                new_sector_value = sector_value - amount_eur
-            else:
-                new_sector_value = sector_value + amount_eur
+            new_sector_value = sector_value - amount_eur if action == "sell" else sector_value + amount_eur
             new_sector_pct = round(new_sector_value / new_total * 100, 1)
             impact = {
                 "sector": target_ticker_sector,
@@ -239,143 +229,281 @@ def _build_portfolio_context(summary, ticker: str, action: str, amount_eur: Opti
 
 
 # ─────────────────────────────────────────────────────────────
-# Gemini Prompt
+# Feature 2: Function Calling — Tool Definitionen
 # ─────────────────────────────────────────────────────────────
 
-def _build_advisor_prompt(
+def _build_tool_declarations() -> list[dict]:
+    """Definiert die Tools die Gemini aufrufen kann."""
+    return [
+        {
+            "name": "get_stock_score",
+            "description": (
+                "Berechnet den 10-Faktor-Score einer Aktie. "
+                "Gibt Score (0-100), Rating (buy/hold/sell), Confidence und Score-Breakdown zurück."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {
+                        "type": "string",
+                        "description": "Aktien-Ticker (z.B. NVDA, AAPL)",
+                    },
+                },
+                "required": ["ticker"],
+            },
+        },
+        {
+            "name": "get_portfolio_overview",
+            "description": (
+                "Gibt eine Übersicht des aktuellen Portfolios: Gesamtwert, Positionen, "
+                "Sektor-Verteilung, P&L, Fear&Greed Index."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
+        {
+            "name": "get_sector_impact",
+            "description": (
+                "Simuliert den Impact eines Trades auf die Sektor-Verteilung des Portfolios."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {"type": "string"},
+                    "action": {"type": "string", "enum": ["buy", "sell", "increase"]},
+                    "amount_eur": {"type": "number"},
+                },
+                "required": ["ticker", "action", "amount_eur"],
+            },
+        },
+    ]
+
+
+def _execute_tool_call(
+    tool_name: str,
+    tool_args: dict,
+    score_info: dict,
+    portfolio_ctx: dict,
+) -> str:
+    """Führt einen Tool-Aufruf aus und gibt das Ergebnis als JSON-String zurück."""
+    if tool_name == "get_stock_score":
+        return json.dumps(score_info, default=str)
+
+    elif tool_name == "get_portfolio_overview":
+        # Slim version: nur die wichtigsten Felder
+        overview = {
+            "total_value": portfolio_ctx["total_value"],
+            "num_positions": portfolio_ctx["num_positions"],
+            "total_pnl_pct": portfolio_ctx["total_pnl_pct"],
+            "fear_greed": portfolio_ctx.get("fear_greed"),
+            "fear_greed_label": portfolio_ctx.get("fear_greed_label"),
+            "sector_distribution": portfolio_ctx["sector_distribution"],
+            "top_positions": portfolio_ctx["top_positions"][:5],
+        }
+        return json.dumps(overview, default=str)
+
+    elif tool_name == "get_sector_impact":
+        impact = portfolio_ctx.get("impact", {})
+        if not impact:
+            return json.dumps({"info": "Keine Impact-Daten verfügbar (Betrag oder Sektor fehlt)"})
+        return json.dumps(impact, default=str)
+
+    return json.dumps({"error": f"Unbekanntes Tool: {tool_name}"})
+
+
+# ─────────────────────────────────────────────────────────────
+# Feature 1: Structured Output Schema
+# ─────────────────────────────────────────────────────────────
+
+ADVISOR_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "recommendation": {
+            "type": "string",
+            "enum": ["buy", "hold", "reduce", "avoid"],
+            "description": "Trade-Empfehlung",
+        },
+        "confidence": {
+            "type": "integer",
+            "description": "Confidence 0-100",
+        },
+        "summary": {
+            "type": "string",
+            "description": "1-2 Sätze Fazit auf Deutsch",
+        },
+        "bull_case": {
+            "type": "string",
+            "description": "Argumente für den Trade",
+        },
+        "bear_case": {
+            "type": "string",
+            "description": "Argumente gegen den Trade",
+        },
+        "portfolio_fit": {
+            "type": "string",
+            "description": "Wie passt der Trade zum Portfolio?",
+        },
+        "sizing_advice": {
+            "type": "string",
+            "description": "Empfohlene Positionsgröße",
+        },
+        "risks": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Liste der wichtigsten Risiken",
+        },
+        "timing": {
+            "type": "string",
+            "description": "Timing-Einschätzung",
+        },
+        "external_analysis": {
+            "type": "string",
+            "description": "Zusammenfassung externer Quellen",
+        },
+    },
+    "required": ["recommendation", "confidence", "summary", "bull_case",
+                 "bear_case", "portfolio_fit", "sizing_advice", "risks", "timing"],
+}
+
+
+# ─────────────────────────────────────────────────────────────
+# Gemini API Call mit Function Calling + Structured Output
+# ─────────────────────────────────────────────────────────────
+
+async def _call_gemini_with_tools(
     ticker: str,
     action: str,
     amount_eur: Optional[float],
     score_info: dict,
     portfolio_ctx: dict,
     extra_context: Optional[str],
-) -> str:
-    """Baut den strukturierten Prompt für Gemini 2.5 Pro."""
-    action_de = {"buy": "Kauf", "sell": "Verkauf", "increase": "Aufstocken"}.get(action, action)
+) -> dict:
+    """Ruft Gemini 2.5 Pro mit Function Calling + Structured Output auf.
 
-    lines = [
-        "Du bist ein erfahrener Portfolio-Advisor. Analysiere die folgende Trade-Idee "
-        "im Kontext des bestehenden Portfolios. Antworte auf Deutsch.",
-        "",
-        "═══════════════════════════════════════",
-        f"TRADE-ANFRAGE: {action_de.upper()} von {ticker}",
-        "═══════════════════════════════════════",
-        "",
-    ]
-
-    if amount_eur:
-        lines.append(f"Geplanter Betrag: {amount_eur:,.0f} EUR")
-    lines.append(f"Aktion: {action_de}")
-    lines.append("")
-
-    # Score-Info
-    if score_info.get("total_score") is not None:
-        lines.append(f"── SCORING-ENGINE ERGEBNIS ──")
-        lines.append(f"10-Faktor-Score: {score_info['total_score']:.0f}/100 ({score_info['rating'].upper()})")
-        lines.append(f"Confidence: {score_info.get('confidence', 0):.0%}")
-        if score_info.get("in_portfolio"):
-            lines.append(f"Aktuelles Gewicht: {score_info['current_weight']:.1f}%")
-            lines.append(f"Aktuelle P&L: {score_info['current_pnl_pct']:+.1f}%")
-        bd = score_info.get("breakdown", {})
-        if bd:
-            lines.append(f"  Quality: {bd.get('quality', 0):.0f} | Valuation: {bd.get('valuation', 0):.0f} | "
-                         f"Analyst: {bd.get('analyst', 0):.0f}")
-            lines.append(f"  Technical: {bd.get('technical', 0):.0f} | Momentum: {bd.get('momentum', 0):.0f} | "
-                         f"Sentiment: {bd.get('sentiment', 0):.0f}")
-    else:
-        lines.append(f"⚠️ Kein Score verfügbar — bitte recherchiere {ticker} selbst.")
-    lines.append("")
-
-    # Portfolio-Kontext
-    lines.append("── PORTFOLIO-KONTEXT ──")
-    lines.append(f"Gesamtwert: {portfolio_ctx['total_value']:,.0f} EUR ({portfolio_ctx['num_positions']} Positionen)")
-    lines.append(f"Gesamt-P&L: {portfolio_ctx['total_pnl_pct']:+.1f}%")
-    if portfolio_ctx.get("fear_greed"):
-        lines.append(f"Markt-Sentiment (Fear&Greed): {portfolio_ctx['fear_greed']}/100 ({portfolio_ctx['fear_greed_label']})")
-    lines.append("")
-
-    lines.append("Sektor-Verteilung:")
-    for sec, pct in sorted(portfolio_ctx["sector_distribution"].items(), key=lambda x: x[1], reverse=True):
-        lines.append(f"  {sec}: {pct:.1f}%")
-    lines.append("")
-
-    lines.append("Top-Positionen:")
-    for p in portfolio_ctx["top_positions"][:8]:
-        score_str = f"Score: {p['score']:.0f}" if p["score"] else "kein Score"
-        lines.append(f"  {p['ticker']} ({p['name']}) — {p['weight']:.1f}% | {score_str} | P&L: {p['pnl_pct']:+.1f}%")
-    lines.append("")
-
-    # Impact
-    impact = portfolio_ctx.get("impact", {})
-    if impact:
-        lines.append("── IMPACT-SIMULATION ──")
-        lines.append(f"Sektor {impact['sector']}: {impact['sector_weight_before']:.1f}% → {impact['sector_weight_after']:.1f}%")
-        lines.append("")
-
-    # Externe Quellen
-    if extra_context and extra_context.strip():
-        lines.append("── EXTERNE QUELLEN (vom User) ──")
-        # Auf 3000 Zeichen begrenzen
-        lines.append(extra_context.strip()[:3000])
-        lines.append("")
-
-    # Aufgabe
-    lines.append("═══════════════════════════════════════")
-    lines.append("AUFGABE:")
-    lines.append("═══════════════════════════════════════")
-    lines.append("")
-    lines.append(
-        "Erstelle eine professionelle Trade-Bewertung. Antworte STRIKT im folgenden JSON-Format "
-        "(kein Markdown, kein Code-Block, nur reines JSON):\n"
-    )
-    lines.append("""{
-  "recommendation": "buy" | "hold" | "reduce" | "avoid",
-  "confidence": <0-100>,
-  "summary": "<1-2 Sätze Fazit>",
-  "bull_case": "<Argumente für den Trade>",
-  "bear_case": "<Argumente gegen den Trade>",
-  "portfolio_fit": "<Wie passt der Trade zum Portfolio? Diversifikation, Sektor-Overlap, Korrelation>",
-  "sizing_advice": "<Empfohlene Positionsgröße und Begründung>",
-  "risks": ["<Risiko 1>", "<Risiko 2>", "<Risiko 3>"],
-  "timing": "<Ist der Zeitpunkt günstig? Momentum, Sentiment, Makro>",
-  "external_analysis": "<Falls externe Quellen vorhanden: Zusammenfassung und Einordnung>"
-}""")
-
-    return "\n".join(lines)
-
-
-# ─────────────────────────────────────────────────────────────
-# Gemini API Call
-# ─────────────────────────────────────────────────────────────
-
-async def _call_gemini(prompt: str) -> dict:
-    """Ruft Gemini 2.5 Pro mit Google Search Grounding auf."""
-    from services.vertex_ai import get_client, get_grounded_config, get_cached_content
+    Flow:
+    1. Sende Prompt + Tool-Definitionen an Gemini
+    2. Gemini entscheidet welche Tools es braucht
+    3. Wir führen die Tools aus und senden Ergebnisse zurück
+    4. Gemini erstellt die finale Bewertung (Structured Output)
+    """
+    from services.vertex_ai import get_client, get_cached_content
+    from google.genai.types import Tool, GoogleSearch, FunctionDeclaration, Part, Content
 
     client = get_client()
 
-    # Google Search Grounding + Context Cache
-    config = get_grounded_config()
+    # System-Prompt
+    action_de = {"buy": "Kauf", "sell": "Verkauf", "increase": "Aufstocken"}.get(action, action)
+    system_prompt = (
+        "Du bist ein erfahrener Portfolio-Advisor. Der User möchte einen Trade evaluieren. "
+        "Du hast Zugriff auf Tools um Portfolio-Daten und Aktien-Scores abzurufen. "
+        "Nutze die Tools um deine Analyse zu untermauern. "
+        "Nutze auch Google Search für aktuelle Marktdaten und Nachrichten. "
+        "Antworte auf Deutsch."
+    )
+
+    # User-Prompt
+    user_prompt_parts = [
+        f"Evaluiere folgenden Trade: {action_de.upper()} von {ticker}",
+    ]
+    if amount_eur:
+        user_prompt_parts.append(f"Geplanter Betrag: {amount_eur:,.0f} EUR")
+    if extra_context:
+        user_prompt_parts.append(f"\nExterne Quellen vom User:\n{extra_context.strip()[:3000]}")
+    user_prompt_parts.append(
+        "\nNutze die verfügbaren Tools um den Score und das Portfolio abzufragen, "
+        "dann erstelle eine professionelle Trade-Bewertung."
+    )
+    user_prompt = "\n".join(user_prompt_parts)
+
+    # Tool-Definitionen
+    tool_declarations = [
+        FunctionDeclaration(**td) for td in _build_tool_declarations()
+    ]
+
+    # Config: Google Search + eigene Tools
+    config = {
+        "tools": [
+            Tool(google_search=GoogleSearch()),
+            Tool(function_declarations=tool_declarations),
+        ],
+        "response_mime_type": "application/json",
+        "response_schema": ADVISOR_RESPONSE_SCHEMA,
+        "system_instruction": system_prompt,
+    }
+
     cached = get_cached_content()
     if cached:
         config["cached_content"] = cached
 
+    # Schritt 1: Initiale Anfrage
     response = client.models.generate_content(
         model="gemini-2.5-pro",
-        contents=prompt,
+        contents=user_prompt,
         config=config,
     )
 
-    raw = response.text.strip() if response.text else ""
-    logger.info(f"🧠 Trade Advisor Response für {prompt[:50]}... ({len(raw)} Zeichen)")
+    # Schritt 2: Function Calling Loop (max 3 Runden)
+    contents = [
+        Content(role="user", parts=[Part(text=user_prompt)]),
+        response.candidates[0].content,
+    ]
 
-    # JSON parsen (Gemini liefert manchmal Markdown Code-Blocks)
+    for round_num in range(3):
+        # Prüfe ob Gemini Tools aufrufen will
+        function_calls = []
+        for part in response.candidates[0].content.parts:
+            if part.function_call:
+                function_calls.append(part)
+
+        if not function_calls:
+            break  # Gemini ist fertig → finale Antwort
+
+        logger.info(f"🔧 Function Calling Runde {round_num + 1}: "
+                     f"{len(function_calls)} Tool-Aufrufe")
+
+        # Alle Tool-Aufrufe ausführen
+        tool_results = []
+        for fc_part in function_calls:
+            fc = fc_part.function_call
+            tool_name = fc.name
+            tool_args = dict(fc.args) if fc.args else {}
+
+            logger.debug(f"  Tool: {tool_name}({tool_args})")
+            result_str = _execute_tool_call(
+                tool_name, tool_args, score_info, portfolio_ctx,
+            )
+
+            tool_results.append(Part.from_function_response(
+                name=tool_name,
+                response={"result": result_str},
+            ))
+
+        # Tool-Ergebnisse zurücksenden
+        contents.append(Content(role="user", parts=tool_results))
+
+        response = client.models.generate_content(
+            model="gemini-2.5-pro",
+            contents=contents,
+            config=config,
+        )
+        contents.append(response.candidates[0].content)
+
+    # Finale Antwort parsen
+    raw = response.text.strip() if response.text else ""
+    logger.info(f"🧠 Trade Advisor Response ({len(raw)} Zeichen, "
+                f"nach {round_num + 1 if function_calls else 0} Tool-Runden)")
+
     return _parse_ai_response(raw)
 
 
 def _parse_ai_response(raw: str) -> dict:
-    """Parsed die Gemini-Antwort zu strukturiertem Dict."""
-    # Markdown Code-Blocks entfernen
+    """Parsed die Gemini-Antwort zu strukturiertem Dict.
+
+    Mit Structured Output (Feature 1) sollte dies immer valides JSON sein.
+    Fallback für Edge-Cases wird beibehalten.
+    """
     cleaned = raw
     if "```json" in cleaned:
         cleaned = cleaned.split("```json", 1)[1]
@@ -385,7 +513,6 @@ def _parse_ai_response(raw: str) -> dict:
 
     try:
         result = json.loads(cleaned)
-        # Sicherstellen dass alle erwarteten Felder vorhanden
         defaults = {
             "recommendation": "hold",
             "confidence": 50,
