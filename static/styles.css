@@ -550,6 +550,34 @@ body {
     margin-right: 0.25rem;
 }
 
+/* Cash info in header */
+.cash-info {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
+
+/* Cash row in portfolio table */
+.cash-separator td {
+    border-bottom: none;
+    padding: 0.3rem 1rem;
+}
+
+.cash-separator td hr {
+    border: none;
+    border-top: 1px dashed var(--border-light);
+    margin: 0;
+}
+
+.portfolio-table tr.cash-row td {
+    color: var(--text-secondary);
+    background: rgba(100, 116, 139, 0.04);
+    font-style: italic;
+    border-bottom: none;
+}
+
 .table-responsive {
     overflow-x: auto;
 }

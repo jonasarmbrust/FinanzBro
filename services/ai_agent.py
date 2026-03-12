@@ -104,6 +104,11 @@ def _build_telegram_report(
 
     sections.append(f"  Positionen: {summary.num_positions}")
 
+    # Cash-Bestand
+    cash_stock = next((s for s in summary.stocks if s.position.ticker == "CASH"), None)
+    if cash_stock:
+        sections.append(f"  💵 Cash: {cash_stock.position.current_price:,.2f} EUR")
+
     # Fear & Greed
     if summary.fear_greed:
         fg = summary.fear_greed
@@ -111,6 +116,19 @@ def _build_telegram_report(
         sections.append(f"  {fg_emoji} Fear & Greed: {fg.value}/100 ({fg.label})")
 
     sections.append("")
+
+    # ── Tagesgewinner / Tagesverlierer ──
+    winners, losers = _get_daily_movers(summary.stocks)
+    if winners:
+        sections.append("📈 *Tagesgewinner*")
+        for stock, pct in winners:
+            sections.append(f"  🟢 {stock.position.ticker}: {pct:+.1f}%")
+        sections.append("")
+    if losers:
+        sections.append("📉 *Tagesverlierer*")
+        for stock, pct in losers:
+            sections.append(f"  🔴 {stock.position.ticker}: {pct:+.1f}%")
+        sections.append("")
 
     # ── Analyse-Report Details ──
     if report:
@@ -261,14 +279,28 @@ async def _run_gemini_research(
             if pos.score_change:
                 context_lines.append(f"  {pos.ticker}: {pos.score_change:+.1f} Punkte")
 
+    # Tagesgewinner / Tagesverlierer als Kontext
+    winners, losers = _get_daily_movers(summary.stocks)
+    if winners or losers:
+        context_lines.append("")
+        if winners:
+            context_lines.append("Tagesgewinner: " + ", ".join(
+                f"{s.position.ticker} {p:+.1f}%" for s, p in winners
+            ))
+        if losers:
+            context_lines.append("Tagesverlierer: " + ", ".join(
+                f"{s.position.ticker} {p:+.1f}%" for s, p in losers
+            ))
+
     context_lines.append("")
     context_lines.append(
         "Erstelle eine professionelle Portfolio-Analyse auf Deutsch. Strukturiere so:\n"
         "1. MARKTUMFELD: Aktuelle Marktlage und Makro-Faktoren (Zinsen, Inflation, Geopolitik)\n"
         "2. PORTFOLIO-BEWERTUNG: Stärken und Schwächen des Portfolios, Sektor-Konzentration\n"
-        "3. TOP POSITIONEN: Kommentiere die 2-3 auffälligsten Positionen (beste, schlechteste, größte Veränderung)\n"
-        "4. HANDLUNGSEMPFEHLUNG: 1-2 konkrete, umsetzbare Maßnahmen\n\n"
-        "Halte dich auf max 1200 Zeichen. Kein Markdown, nur Plain Text mit Emojis."
+        "3. TAGESBEWEGER: Kommentiere kurz die größten Tagesgewinner und -verlierer aus dem Portfolio\n"
+        "4. TOP POSITIONEN: Kommentiere die 2-3 auffälligsten Positionen (beste, schlechteste, größte Veränderung)\n"
+        "5. HANDLUNGSEMPFEHLUNG: 1-2 konkrete, umsetzbare Maßnahmen\n\n"
+        "Halte dich auf max 1400 Zeichen. Kein Markdown, nur Plain Text mit Emojis."
     )
 
     prompt = "\n".join(context_lines)
@@ -294,6 +326,31 @@ async def _run_gemini_research(
 # ─────────────────────────────────────────────────────────────
 # Hilfsfunktionen
 # ─────────────────────────────────────────────────────────────
+
+def _get_daily_movers(
+    stocks: list[StockFullData],
+    top_n: int = 2,
+) -> list[tuple[StockFullData, float]]:
+    """Gibt die Top-N Tagesgewinner und Top-N Tagesverlierer zurück.
+
+    Returns:
+        (winners, losers) – jeweils Liste von (StockFullData, daily_change_pct)
+    """
+    with_change = [
+        (s, s.position.daily_change_pct)
+        for s in stocks
+        if s.position.ticker != "CASH" and s.position.daily_change_pct is not None and s.position.daily_change_pct != 0
+    ]
+
+    # Sortieren: höchste zuerst für Gewinner, niedrigste zuerst für Verlierer
+    sorted_by_change = sorted(with_change, key=lambda x: x[1], reverse=True)
+
+    winners = [(s, pct) for s, pct in sorted_by_change[:top_n] if pct > 0]
+    losers = [(s, pct) for s, pct in sorted_by_change[-top_n:] if pct < 0]
+    # Verlierer absteigend nach Verlust (größter Verlust zuerst)
+    losers.sort(key=lambda x: x[1])
+
+    return winners, losers
 
 def _get_latest_report() -> Optional[AnalysisReport]:
     """Holt den letzten Analyse-Report aus dem State oder der Historie."""

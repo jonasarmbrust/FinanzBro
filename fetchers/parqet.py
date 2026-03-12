@@ -1,21 +1,20 @@
 """FinanzBro - Parqet Portfolio Fetcher
 
-Liest Portfolio-Daten aus Parqet und aggregiert sie zu Netto-Positionen.
+Liest Portfolio-Daten aus Parqet und liefert Netto-Positionen + Cash.
 
 Architektur:
 -----------
-Zwei API-Anbindungen (gleiche Daten, unterschiedliche Auth):
+Drei Datenquellen in Prioritaet (alle via connect.parqet.com):
 
-  Lokal:     Internal API (api.parqet.com) + Supabase JWT aus Firefox-Cookies
-  Cloud Run: Connect API  (connect.parqet.com) + OAuth2 PKCE Token
+  1. POST /performance  → Fertige Holdings (Positionen + Cash, 1 API-Call)
+  2. GET  /activities   → Cursor-Pagination, manuell aggregieren (Fallback)
+  3. GET  /activities   → Internal API (api.parqet.com), Offset-Pagination (Fallback)
 
-Pagination:
-  Internal API → Offset-Pagination (?limit=100&offset=N)
-  Connect API  → Cursor-Pagination ({"activities":[...], "cursor":"abc"})
+API-Dokumentation: docs/Parqet API/
 
 Cache-Strategie:
   1. Fresh Cache (TTL) → Positionen direkt laden
-  2. API aufrufen → Positionen aggregieren → Cache aktualisieren
+  2. API aufrufen → Positionen laden → Cache aktualisieren
   3. Stale Cache → Positionen ohne TTL, Preise auf 0 (yfinance berechnet neu)
 
 Token-Erneuerung (parqet_auth.py):
@@ -270,13 +269,11 @@ async def _try_performance_api(
             # Ticker aus ISIN-Map oder ISIN selbst verwenden
             ticker = ISIN_TICKER_MAP.get(isin, isin)
 
-            # Waehrung: aus Quote (bevorzugt) oder allgemein
-            currency = (quote.get("currency") or "EUR")
-            # FX-Rate fuer korrekte Waehrungserkennung
-            fx = quote.get("fx") or {}
-            original_currency = fx.get("originalCurrency")
-            if original_currency:
-                currency = original_currency
+            # Performance API liefert currentPrice/purchasePrice in Portfolio-
+            # Waehrung (EUR). Keine weitere Konvertierung noetig!
+            # Die quote.fx.originalCurrency zeigt nur die Boersenwaehrung,
+            # aber der Preis ist bereits konvertiert.
+            currency = "EUR"
 
             positions.append(PortfolioPosition(
                 ticker=ticker.upper(),

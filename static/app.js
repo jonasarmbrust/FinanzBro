@@ -81,6 +81,16 @@ function renderHeader() {
     // Portfolio value (converted)
     document.getElementById('totalValue').textContent = formatCurrency(toDisplay(d.total_value));
 
+    // Cash info
+    const cashStock = (d.stocks || []).find(s => s.position.ticker === 'CASH');
+    const cashEl = document.getElementById('cashInfo');
+    if (cashStock && cashEl) {
+        const cashValue = toDisplay(cashStock.position.current_price);
+        cashEl.textContent = `💵 Cash: ${formatCurrency(cashValue)}`;
+    } else if (cashEl) {
+        cashEl.textContent = '';
+    }
+
     // P&L (Gesamt)
     const pnlEl = document.getElementById('portfolioPnl');
     const pnlConverted = toDisplay(d.total_pnl);
@@ -327,6 +337,35 @@ function renderTable() {
             </tr>
         `;
     }).join('');
+
+    // Cash row: separated at bottom
+    const cashStock = (portfolioData.stocks || []).find(s => s.position.ticker === 'CASH');
+    if (cashStock) {
+        const cashPos = cashStock.position;
+        const cashValue = toDisplay(cashPos.current_price);
+        tbody.innerHTML += `
+            <tr class="cash-separator"><td colspan="10"><hr></td></tr>
+            <tr class="cash-row">
+                <td>
+                    <div class="stock-info">
+                        <div>
+                            <div class="stock-name">💵 Cash</div>
+                            <div class="stock-ticker">Barbestand</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="price-cell">–</td>
+                <td class="price-cell cost-cell">–</td>
+                <td class="pnl-cell">–</td>
+                <td>–</td>
+                <td class="price-cell">${formatCurrency(cashValue)}</td>
+                <td class="pnl-cell">–</td>
+                <td>–</td>
+                <td>–</td>
+                <td></td>
+            </tr>
+        `;
+    }
 }
 
 function renderRebalancing() {
@@ -841,7 +880,7 @@ function sortTable(field) {
 }
 
 function getFilteredSorted() {
-    let stocks = [...(portfolioData.stocks || [])];
+    let stocks = (portfolioData.stocks || []).filter(s => s.position.ticker !== 'CASH');
 
     // Filter
     if (currentFilter !== 'all') {

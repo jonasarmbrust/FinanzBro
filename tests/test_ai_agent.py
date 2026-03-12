@@ -28,6 +28,7 @@ def sample_summary():
             position=PortfolioPosition(
                 ticker="AAPL", name="Apple Inc.", shares=10,
                 avg_cost=150.0, current_price=175.0, sector="Technology",
+                daily_change_pct=2.1,
             ),
             score=StockScore(
                 ticker="AAPL", name="Apple Inc.", total_score=78.0,
@@ -39,6 +40,7 @@ def sample_summary():
             position=PortfolioPosition(
                 ticker="MSFT", name="Microsoft", shares=5,
                 avg_cost=300.0, current_price=350.0, sector="Technology",
+                daily_change_pct=0.5,
             ),
             score=StockScore(
                 ticker="MSFT", name="Microsoft", total_score=55.0,
@@ -50,6 +52,7 @@ def sample_summary():
             position=PortfolioPosition(
                 ticker="INTC", name="Intel", shares=20,
                 avg_cost=40.0, current_price=30.0, sector="Technology",
+                daily_change_pct=-3.4,
             ),
             score=StockScore(
                 ticker="INTC", name="Intel", total_score=32.0,
@@ -193,6 +196,56 @@ class TestHelpers:
         sorted_stocks = _sort_stocks_by_score(sample_summary.stocks)
         scores = [s.score.total_score for s in sorted_stocks]
         assert scores == sorted(scores, reverse=True)
+
+
+class TestDailyMovers:
+    """Tests für die Tagesgewinner/Tagesverlierer-Logik."""
+
+    def test_get_daily_movers_returns_winners_and_losers(self, sample_summary):
+        from services.ai_agent import _get_daily_movers
+        winners, losers = _get_daily_movers(sample_summary.stocks)
+
+        assert len(winners) == 2  # AAPL +2.1%, MSFT +0.5% (top_n=2)
+        assert len(losers) == 1   # INTC -3.4% (nur 1 Verlierer vorhanden)
+        assert winners[0][0].position.ticker == "AAPL"
+        assert losers[0][0].position.ticker == "INTC"
+
+    def test_get_daily_movers_filters_none_and_zero(self):
+        from services.ai_agent import _get_daily_movers
+        stocks = [
+            StockFullData(
+                position=PortfolioPosition(
+                    ticker="X", shares=1, avg_cost=10, current_price=10,
+                    daily_change_pct=None,
+                ),
+                data_sources=DataSourceStatus(),
+            ),
+            StockFullData(
+                position=PortfolioPosition(
+                    ticker="Y", shares=1, avg_cost=10, current_price=10,
+                    daily_change_pct=0.0,
+                ),
+                data_sources=DataSourceStatus(),
+            ),
+        ]
+        winners, losers = _get_daily_movers(stocks)
+        assert winners == []
+        assert losers == []
+
+    def test_get_daily_movers_respects_top_n(self, sample_summary):
+        from services.ai_agent import _get_daily_movers
+        winners, losers = _get_daily_movers(sample_summary.stocks, top_n=1)
+        assert len(winners) <= 1
+        assert len(losers) <= 1
+
+    def test_report_contains_daily_movers(self, sample_summary, sample_report):
+        from services.ai_agent import _build_telegram_report
+        text = _build_telegram_report(sample_summary, sample_report)
+
+        assert "Tagesgewinner" in text
+        assert "Tagesverlierer" in text
+        assert "AAPL" in text
+        assert "INTC" in text
 
 
 class TestRunDailyReport:

@@ -120,6 +120,11 @@ async def _cmd_portfolio(chat_id: str):
         fg = summary.fear_greed
         lines.append(f"😐 Fear&Greed: {fg.value}/100 ({fg.label})")
 
+    # Cash-Bestand
+    cash_stock = next((s for s in summary.stocks if s.position.ticker == "CASH"), None)
+    if cash_stock:
+        lines.append(f"💵 Cash: {cash_stock.position.current_price:,.2f} EUR")
+
     # FMP Usage
     try:
         from fetchers.fmp import get_fmp_usage

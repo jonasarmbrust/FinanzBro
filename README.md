@@ -31,16 +31,16 @@ FastAPI Backend (lokal / Cloud Run)
 
 ## Parqet API-Anbindung
 
-Zwei Wege zum gleichen Ergebnis (19 Aktien + 1 Cash = 20 Positionen):
+Drei Datenquellen in Prioritätsreihenfolge (20 Positionen = 19 Aktien + 1 Cash):
 
-| | Lokal | Cloud Run |
-|---|---|---|
-| **API** | Internal API (`api.parqet.com`) | Connect API (`connect.parqet.com`) |
-| **Auth** | Supabase JWT aus Firefox-Cookies | OAuth2 PKCE Token |
-| **Pagination** | Offset (`?limit=100&offset=N`) | Cursor (`?cursor=abc`) |
-| **Fallback** | – | Stale Cache + yfinance Preise |
+| Priorität | Endpoint | Methode | Beschreibung |
+|-----------|----------|---------|--------------|
+| **1. Performance** | `POST /performance` | Connect API | Fertige Holdings mit Positionen + Cash (1 API-Call) |
+| 2. Activities | `GET /activities` | Connect API | Cursor-Pagination, manuell aggregieren |
+| 3. Activities | `GET /activities` | Internal API | Offset-Pagination, Supabase JWT (nur lokal) |
 
-**Setup Cloud Run:** Einmalig `/api/parqet/authorize` aufrufen → Parqet-Login → OAuth2 Tokens gespeichert.
+**Setup Cloud Run:** Einmalig `/api/parqet/authorize` aufrufen → Parqet-Login → OAuth2 Tokens gespeichert.  
+**API-Referenz:** `docs/Parqet API/`
 
 ## API-Endpoints
 
@@ -131,13 +131,18 @@ python main.py
 
 ### Cloud Run
 ```bash
-# Über Workflow (empfohlen):
-# 1. Tokens aus Firefox extrahieren
-# 2. Tests laufen lassen
-# 3. Deployen mit frischen Tokens
+# 1. Tests laufen lassen
+python -m pytest tests/ -q
+
+# 2. Deployen (bestehende Env-Vars bleiben erhalten)
+gcloud run deploy finanzbro --source . --region europe-west1 \
+  --update-env-vars ENVIRONMENT=production,GCP_PROJECT_ID=job-automation-jonas
+
+# 3. OAuth2 re-autorisieren (neuer Container)
+# → https://finanzbro-384210760656.europe-west1.run.app/api/parqet/authorize
 ```
 
-Oder manuell: `gcloud run deploy finanzbro --source . --region europe-west1`
+> **Wichtig:** `--update-env-vars` statt `--set-env-vars` verwenden!
 
 ### Environment (.env)
 ```env
