@@ -153,8 +153,21 @@ async def _do_refresh():
                 scores_dict[pos.ticker] = score
         else:
             # C1: Daten parallel laden via data_loader Modul
-            from services.data_loader import load_positions_batched
-            stocks = await load_positions_batched(positions, fear_greed_data)
+            import sys
+            print(f"[DEBUG] Starting data_loader for {len(positions)} positions, is_demo={is_demo}", flush=True, file=sys.stderr)
+            try:
+                from services.data_loader import load_positions_batched
+                stocks = await load_positions_batched(positions, fear_greed_data)
+                print(f"[DEBUG] data_loader returned {len(stocks)} stocks", flush=True, file=sys.stderr)
+                # Debug: check first stock
+                if stocks:
+                    s0 = stocks[0]
+                    print(f"[DEBUG] First stock: {s0.position.ticker} ds={s0.data_sources} fund={s0.fundamentals is not None} score={s0.score.total_score if s0.score else 'None'}", flush=True, file=sys.stderr)
+            except Exception as e:
+                print(f"[DEBUG] data_loader CRASHED: {type(e).__name__}: {e}", flush=True, file=sys.stderr)
+                import traceback
+                traceback.print_exc()
+                stocks = [StockFullData(position=p) for p in positions]
 
             # Collect scores
             scores_dict = {s.position.ticker: s.score for s in stocks if s.score}
