@@ -50,6 +50,7 @@ class CacheManager:
         self._memory: dict = {}
         self._cached_at: Optional[datetime] = None
         self._dirty = False
+        self._stale = False
         self._loaded = False
         self._lock = threading.Lock()
 
@@ -58,7 +59,11 @@ class CacheManager:
             CacheManager._registry[name] = self
 
     def _ensure_loaded(self):
-        """Lädt Cache von Disk beim ersten Zugriff."""
+        """Lädt Cache von Disk beim ersten Zugriff.
+        
+        Bei abgelaufenen Daten: Daten werden als 'stale' markiert aber trotzdem
+        geladen (besser als leere Felder im UI). Ein neuer Refresh überschreibt sie.
+        """
         if self._loaded:
             return
         self._loaded = True
@@ -74,8 +79,19 @@ class CacheManager:
                 if datetime.now() - cached_time < self.ttl:
                     self._memory = data
                     self._cached_at = cached_time
+                    self._stale = False
                     return
-            # Cache abgelaufen
+                # Cache abgelaufen → trotzdem als Stale-Fallback laden
+                self._memory = data
+                self._cached_at = cached_time
+                self._stale = True
+                logger.debug(
+                    f"Cache '{self.name}' abgelaufen seit "
+                    f"{(datetime.now() - cached_time).total_seconds():.0f}s "
+                    f"— nutze als Stale-Fallback ({len(data)} Einträge)"
+                )
+                return
+            # Kein Zeitstempel → Cache nicht vertrauenswürdig
             self._memory = {}
         except Exception:
             self._memory = {}

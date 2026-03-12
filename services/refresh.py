@@ -143,7 +143,7 @@ async def _do_refresh():
         else:
             # C1: Daten parallel laden via data_loader Modul
             from services.data_loader import load_positions_batched
-            stocks = await load_positions_batched(positions, fear_greed_data, batch_size=2)
+            stocks = await load_positions_batched(positions, fear_greed_data)
 
             # Collect scores
             scores_dict = {s.position.ticker: s.score for s in stocks if s.score}

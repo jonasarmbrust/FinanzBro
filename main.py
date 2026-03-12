@@ -50,6 +50,20 @@ async def lifespan(app: FastAPI):
     # Fast startup: Parqet API + yFinance prices only (no heavy FMP/Stocknear/AV)
     asyncio.create_task(_update_parqet())
 
+    # Verzögerter Full-Refresh: Lädt FMP, yFinance, Technical Daten im Hintergrund
+    # → Startet 30s nach App-Start (wenn Parqet-Positionen bereits geladen sind)
+    # → User sieht nach ~90s vollständige Daten in der Detail-Ansicht
+    async def _delayed_full_refresh():
+        await asyncio.sleep(30)
+        logger.info("🔄 Auto-Refresh: Lade FMP/yFinance/Technical Daten...")
+        try:
+            await _refresh_data()
+            logger.info("✅ Auto-Refresh abgeschlossen")
+        except Exception as e:
+            logger.warning(f"Auto-Refresh fehlgeschlagen: {e}")
+
+    asyncio.create_task(_delayed_full_refresh())
+
     # Start Finnhub WebSocket (if API key configured)
     finnhub_streamer = None
     try:
