@@ -60,6 +60,75 @@ PARQET_CONNECT_API = settings.PARQET_API_BASE_URL   # Connect API (OAuth2): http
 # Cached activities from last API call (reused by history endpoint)
 _cached_activities: list = []
 
+# Cache TTL: Positionen bleiben 12 Stunden frisch
+_CACHE_TTL_HOURS = 12
+
+
+def _load_cache() -> list | None:
+    """Laedt Positionen aus dem Cache, wenn innerhalb TTL."""
+    if not CACHE_FILE.exists():
+        return None
+    try:
+        data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+        cached_at = data.get("_cached_at", "")
+        positions = data.get("positions", [])
+        if not positions:
+            return None
+
+        # TTL pruefen
+        if cached_at:
+            cache_time = datetime.fromisoformat(cached_at)
+            if datetime.now() - cache_time > timedelta(hours=_CACHE_TTL_HOURS):
+                logger.info(f"Parqet Cache abgelaufen ({cached_at})")
+                return None
+
+        return positions
+    except Exception as e:
+        logger.warning(f"Parqet Cache-Laden fehlgeschlagen: {e}")
+        return None
+
+
+def _load_stale_cache() -> list[PortfolioPosition]:
+    """Laedt Positionen vom Vortag OHNE TTL-Check.
+
+    Preise werden auf 0 gesetzt — yFinance berechnet sie neu.
+    Stueckzahlen, ISIN, Ticker und Sektoren bleiben erhalten.
+    """
+    if not CACHE_FILE.exists():
+        return []
+    try:
+        data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+        positions = data.get("positions", [])
+        if not positions:
+            return []
+
+        result = []
+        for p in positions:
+            # Preise zuruecksetzen, Stueckzahlen behalten
+            p["current_price"] = 0.0
+            result.append(PortfolioPosition(**p))
+
+        logger.info(f"Parqet Stale-Cache: {len(result)} Positionen geladen (Preise auf 0)")
+        return result
+    except Exception as e:
+        logger.warning(f"Parqet Stale-Cache-Laden fehlgeschlagen: {e}")
+        return []
+
+
+def _save_cache(positions: list[dict]):
+    """Speichert Positionen im Cache mit Zeitstempel."""
+    try:
+        CACHE_FILE.write_text(
+            json.dumps({
+                "_cached_at": datetime.now().isoformat(),
+                "positions": positions,
+            }, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        logger.info(f"Parqet Cache gespeichert: {len(positions)} Positionen")
+    except Exception as e:
+        logger.warning(f"Parqet Cache-Speichern fehlgeschlagen: {e}")
+
 # ISIN-to-Ticker mapping (includes all portfolio positions)
 ISIN_TICKER_MAP = {
     # US Large-Cap
