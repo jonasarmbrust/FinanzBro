@@ -1827,3 +1827,196 @@ renderDashboard = function() {
     _origRenderDashboard();
     saveScoreHistory();
 };
+
+
+// ==================== AI Trade Advisor ====================
+let _advisorAction = 'buy';
+
+function setAdvisorAction(action, btn) {
+    _advisorAction = action;
+    document.querySelectorAll('.advisor-action-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+async function submitAdvisorQuery() {
+    const ticker = document.getElementById('advisorTicker')?.value?.trim().toUpperCase();
+    if (!ticker) {
+        alert('Bitte gib einen Ticker ein (z.B. NVDA, AAPL)');
+        return;
+    }
+
+    const amount = document.getElementById('advisorAmount')?.value || null;
+    const context = document.getElementById('advisorContext')?.value || null;
+
+    // Loading state
+    const btn = document.getElementById('advisorSubmitBtn');
+    const btnText = btn.querySelector('.advisor-btn-text');
+    const btnLoad = btn.querySelector('.advisor-btn-loading');
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoad.style.display = 'inline';
+
+    const resultDiv = document.getElementById('advisorResult');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = `
+        <div class="advisor-loading">
+            <div class="advisor-loading-spinner"></div>
+            <p>🧠 AI analysiert <strong>${ticker}</strong>...</p>
+            <p class="advisor-loading-sub">Portfolio-Kontext, Score-Berechnung, Google Search Research</p>
+        </div>
+    `;
+
+    try {
+        const resp = await fetch('/api/advisor/evaluate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ticker,
+                action: _advisorAction,
+                amount_eur: amount ? parseFloat(amount) : null,
+                extra_context: context || null,
+            }),
+        });
+        const data = await resp.json();
+        renderAdvisorResult(data);
+    } catch (e) {
+        resultDiv.innerHTML = `<div class="advisor-error">❌ Fehler: ${e.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btnText.style.display = 'inline';
+        btnLoad.style.display = 'none';
+    }
+}
+
+function renderAdvisorResult(data) {
+    const resultDiv = document.getElementById('advisorResult');
+    if (data.error) {
+        resultDiv.innerHTML = `<div class="advisor-error">⚠️ ${data.error}</div>`;
+        return;
+    }
+
+    const rec = data.recommendation || 'hold';
+    const recMap = {
+        buy: { label: 'KAUFEN', cls: 'rec-buy', icon: '🟢' },
+        hold: { label: 'HALTEN', cls: 'rec-hold', icon: '🟡' },
+        reduce: { label: 'REDUZIEREN', cls: 'rec-reduce', icon: '🟠' },
+        avoid: { label: 'VERMEIDEN', cls: 'rec-avoid', icon: '🔴' },
+    };
+    const r = recMap[rec] || recMap.hold;
+    const conf = data.confidence || 0;
+
+    const actionDE = { buy: 'Kauf', sell: 'Verkauf', increase: 'Aufstocken' };
+    const scoreInfo = data.score || {};
+    const ticker = data.ticker || '';
+
+    let scoreHtml = '';
+    if (scoreInfo.total_score != null) {
+        const sRating = (scoreInfo.rating || 'hold').toUpperCase();
+        const sColor = sRating === 'BUY' ? 'var(--green)' : sRating === 'SELL' ? 'var(--red)' : 'var(--yellow)';
+        scoreHtml = `
+            <div class="advisor-score-card">
+                <div class="advisor-score-value" style="color:${sColor}">${scoreInfo.total_score.toFixed(0)}<span>/100</span></div>
+                <div class="advisor-score-rating" style="color:${sColor}">${sRating}</div>
+                <div class="advisor-score-conf">Confidence: ${(scoreInfo.confidence * 100).toFixed(0)}%</div>
+                ${scoreInfo.in_portfolio ? `<div class="advisor-score-meta">Im Portfolio: ${scoreInfo.current_weight}% | P&L: ${scoreInfo.current_pnl_pct > 0 ? '+' : ''}${scoreInfo.current_pnl_pct?.toFixed(1)}%</div>` : '<div class="advisor-score-meta">Nicht im Portfolio</div>'}
+            </div>
+        `;
+    }
+
+    let risksHtml = '';
+    if (data.risks && data.risks.length > 0) {
+        risksHtml = `<div class="advisor-section">
+            <h4>⚠️ Risiken</h4>
+            <ul class="advisor-risks">${data.risks.map(r => `<li>${r}</li>`).join('')}</ul>
+        </div>`;
+    }
+
+    let externalHtml = '';
+    if (data.external_analysis) {
+        externalHtml = `<div class="advisor-section">
+            <h4>📎 Externe Quellen</h4>
+            <p>${data.external_analysis}</p>
+        </div>`;
+    }
+
+    resultDiv.innerHTML = `
+        <div class="advisor-result-header">
+            <div>
+                <h3>${ticker} — ${actionDE[data.action] || data.action}</h3>
+                ${data.amount_eur ? `<span class="advisor-amount">${data.amount_eur.toLocaleString('de-DE')} EUR</span>` : ''}
+            </div>
+            <div class="advisor-rec-badge ${r.cls}">
+                <span class="advisor-rec-icon">${r.icon}</span>
+                <span class="advisor-rec-label">${r.label}</span>
+                <span class="advisor-rec-conf">${conf}%</span>
+            </div>
+        </div>
+
+        <div class="advisor-summary">${data.summary || ''}</div>
+
+        <div class="advisor-grid">
+            ${scoreHtml}
+
+            <div class="advisor-section advisor-bull">
+                <h4>🐂 Bull Case</h4>
+                <p>${data.bull_case || '–'}</p>
+            </div>
+
+            <div class="advisor-section advisor-bear">
+                <h4>🐻 Bear Case</h4>
+                <p>${data.bear_case || '–'}</p>
+            </div>
+        </div>
+
+        <div class="advisor-detail-grid">
+            <div class="advisor-section">
+                <h4>📊 Portfolio-Fit</h4>
+                <p>${data.portfolio_fit || '–'}</p>
+            </div>
+
+            <div class="advisor-section">
+                <h4>📐 Sizing</h4>
+                <p>${data.sizing_advice || '–'}</p>
+            </div>
+
+            <div class="advisor-section">
+                <h4>⏱️ Timing</h4>
+                <p>${data.timing || '–'}</p>
+            </div>
+
+            ${risksHtml}
+            ${externalHtml}
+        </div>
+    `;
+}
+
+// Ticker Autocomplete
+(function() {
+    const input = document.getElementById('advisorTicker');
+    const dropdown = document.getElementById('advisorAutocomplete');
+    if (!input || !dropdown) return;
+
+    input.addEventListener('input', () => {
+        const val = input.value.trim().toUpperCase();
+        dropdown.innerHTML = '';
+        if (!val || !portfolioData?.stocks) { dropdown.style.display = 'none'; return; }
+
+        const matches = portfolioData.stocks
+            .filter(s => s.position.ticker !== 'CASH')
+            .filter(s => s.position.ticker.includes(val) || (s.position.name || '').toUpperCase().includes(val))
+            .slice(0, 6);
+
+        if (matches.length === 0) { dropdown.style.display = 'none'; return; }
+
+        matches.forEach(s => {
+            const div = document.createElement('div');
+            div.className = 'advisor-ac-item';
+            div.textContent = `${s.position.ticker} — ${s.position.name || ''}`;
+            div.onclick = () => { input.value = s.position.ticker; dropdown.style.display = 'none'; };
+            dropdown.appendChild(div);
+        });
+        dropdown.style.display = 'block';
+    });
+
+    input.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
+})();

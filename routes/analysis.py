@@ -246,3 +246,40 @@ async def get_sector_rotation():
 
     return await get_sector_rotation(portfolio_sectors)
 
+
+# ─────────────────────────────────────────────────────────────
+# AI Trade Advisor Endpoint
+# ─────────────────────────────────────────────────────────────
+
+@router.post("/api/advisor/evaluate")
+async def evaluate_trade_endpoint(data: dict):
+    """AI Trade Advisor: Evaluiert Kauf/Verkauf-Entscheidungen.
+
+    Body:
+        ticker: str — Aktienticker (z.B. "NVDA")
+        action: str — "buy", "sell", "increase"
+        amount_eur: float (optional) — Geplanter Betrag
+        extra_context: str (optional) — Externe Quellen / Analystenkommentare
+    """
+    ticker = data.get("ticker", "").strip().upper()
+    if not ticker:
+        return {"error": "Bitte einen Ticker angeben (z.B. NVDA, AAPL)"}
+
+    action = data.get("action", "buy")
+    amount_eur = data.get("amount_eur")
+    extra_context = data.get("extra_context")
+
+    if amount_eur:
+        try:
+            amount_eur = float(amount_eur)
+        except (ValueError, TypeError):
+            amount_eur = None
+
+    from services.trade_advisor import evaluate_trade
+    result = await evaluate_trade(
+        ticker=ticker,
+        action=action,
+        amount_eur=amount_eur,
+        extra_context=extra_context,
+    )
+    return result

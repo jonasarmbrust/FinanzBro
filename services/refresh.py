@@ -286,26 +286,40 @@ async def _do_refresh():
             portfolio_data["last_analysis"] = report
             logger.info(f"📊 Analyse-Report: Portfolio-Score {report.portfolio_score:.1f} ({report.portfolio_rating.value.upper()})")
 
-            # AI Score-Kommentare generieren (Gemini 2.0 Flash)
+            # AI Score-Kommentare NUR zur Analysezeit (spart ~20 Gemini-Calls pro Refresh)
             if settings.gemini_configured:
-                try:
-                    from services.score_commentary import generate_score_commentaries
-                    commentaries = await generate_score_commentaries(stocks)
-                    for stock in stocks:
-                        if stock.score and stock.position.ticker in commentaries:
-                            stock.score.ai_comment = commentaries[stock.position.ticker]
-                    if commentaries:
-                        logger.info(f"🤖 AI-Kommentare: {len(commentaries)} Aktien kommentiert")
-                except Exception as e:
-                    logger.warning(f"Score-Kommentare fehlgeschlagen: {e}")
+                from datetime import datetime as _dt_sc
+                import zoneinfo as _zi_sc
+                _now_sc = _dt_sc.now(_zi_sc.ZoneInfo("Europe/Berlin"))
+                if 15 <= _now_sc.hour <= 16:
+                    try:
+                        from services.score_commentary import generate_score_commentaries
+                        commentaries = await generate_score_commentaries(stocks)
+                        for stock in stocks:
+                            if stock.score and stock.position.ticker in commentaries:
+                                stock.score.ai_comment = commentaries[stock.position.ticker]
+                        if commentaries:
+                            logger.info(f"🤖 AI-Kommentare: {len(commentaries)} Aktien kommentiert")
+                    except Exception as e:
+                        logger.warning(f"Score-Kommentare fehlgeschlagen: {e}")
+                else:
+                    logger.info(f"🤖 Score-Kommentare übersprungen (außerhalb Analysezeit)")
 
-            # AI Agent Telegram-Report nach erfolgreicher Analyse senden
+            # AI Agent Telegram-Report NUR zur geplanten Analysezeit senden
+            # (verhindert Spam bei manuellen Refreshes und Container-Restarts)
             if settings.telegram_configured:
-                try:
-                    from services.ai_agent import run_daily_report
-                    await run_daily_report()
-                except Exception as e:
-                    logger.warning(f"AI Agent Report fehlgeschlagen: {e}")
+                from datetime import datetime as _dt
+                import zoneinfo
+                _now = _dt.now(zoneinfo.ZoneInfo("Europe/Berlin"))
+                _is_scheduled_window = 15 <= _now.hour <= 16  # 15:30-17:00 CET
+                if _is_scheduled_window:
+                    try:
+                        from services.ai_agent import run_daily_report
+                        await run_daily_report()
+                    except Exception as e:
+                        logger.warning(f"AI Agent Report fehlgeschlagen: {e}")
+                else:
+                    logger.info(f"🤖 AI Agent übersprungen (außerhalb Analysezeit, aktuell {_now.strftime('%H:%M')})")
         except Exception as e:
             logger.warning(f"Analyse-Report Generierung fehlgeschlagen: {e}")
 

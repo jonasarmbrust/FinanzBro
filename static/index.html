@@ -72,6 +72,9 @@
         <button class="tab" data-tab="techpicks" onclick="switchTab('techpicks')">
             <span class="tab-icon">🚀</span> Tech Picks
         </button>
+        <button class="tab" data-tab="advisor" onclick="switchTab('advisor')">
+            <span class="tab-icon">🧠</span> AI Advisor
+        </button>
     </nav>
 
     <!-- Main Content -->
@@ -247,6 +250,54 @@
                 <p class="techpicks-subtitle">Aktien aus dem Technologie-Sektor mit hohem Potenzial</p>
             </div>
             <div class="techpicks-grid" id="techPicksGrid">
+            </div>
+        </section>
+
+        <!-- Tab: AI Trade Advisor -->
+        <section class="tab-content" id="tab-advisor">
+            <div class="advisor-container">
+                <!-- Formular -->
+                <div class="advisor-form-card">
+                    <h2 class="section-title">🧠 AI Trade Advisor</h2>
+                    <p class="advisor-subtitle">Evaluiere Kauf- und Verkaufsentscheidungen mit KI-gestützter Portfolio-Analyse</p>
+
+                    <div class="advisor-form">
+                        <div class="advisor-form-row">
+                            <div class="advisor-field">
+                                <label for="advisorTicker">Ticker</label>
+                                <div class="advisor-input-wrapper">
+                                    <input type="text" id="advisorTicker" placeholder="z.B. NVDA" autocomplete="off" spellcheck="false">
+                                    <div class="advisor-autocomplete" id="advisorAutocomplete"></div>
+                                </div>
+                            </div>
+                            <div class="advisor-field">
+                                <label>Aktion</label>
+                                <div class="advisor-action-group">
+                                    <button class="advisor-action-btn active" data-action="buy" onclick="setAdvisorAction('buy', this)">Kauf</button>
+                                    <button class="advisor-action-btn" data-action="increase" onclick="setAdvisorAction('increase', this)">Aufstocken</button>
+                                    <button class="advisor-action-btn" data-action="sell" onclick="setAdvisorAction('sell', this)">Verkauf</button>
+                                </div>
+                            </div>
+                            <div class="advisor-field">
+                                <label for="advisorAmount">Betrag (EUR)</label>
+                                <input type="number" id="advisorAmount" placeholder="z.B. 2000" min="0" step="100">
+                            </div>
+                        </div>
+
+                        <div class="advisor-field">
+                            <label for="advisorContext">📎 Externe Quellen <span class="advisor-optional">(optional)</span></label>
+                            <textarea id="advisorContext" rows="4" placeholder="Analystenkommentare, Artikel-Auszüge oder eigene Notizen hier einfügen..."></textarea>
+                        </div>
+
+                        <button class="advisor-submit-btn" id="advisorSubmitBtn" onclick="submitAdvisorQuery()">
+                            <span class="advisor-btn-text">🔍 Analyse starten</span>
+                            <span class="advisor-btn-loading" style="display:none;">⏳ AI analysiert...</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Ergebnis -->
+                <div class="advisor-result" id="advisorResult" style="display:none;"></div>
             </div>
         </section>
     </main>
