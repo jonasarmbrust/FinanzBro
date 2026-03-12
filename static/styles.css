@@ -212,6 +212,10 @@ body {
     background: linear-gradient(135deg, #8b5cf6, #ec4899);
 }
 
+.btn-telegram {
+    background: linear-gradient(135deg, #06b6d4, #3b82f6);
+}
+
 .btn-refresh:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 15px var(--accent-blue-glow);

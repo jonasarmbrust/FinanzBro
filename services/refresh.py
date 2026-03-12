@@ -160,18 +160,12 @@ async def _do_refresh():
                 scores_dict[pos.ticker] = score
         else:
             # C1: Daten parallel laden via data_loader Modul
-            import sys
-            print(f"[DEBUG] Starting data_loader for {len(positions)} positions, is_demo={is_demo}", flush=True, file=sys.stderr)
             try:
                 from services.data_loader import load_positions_batched
                 stocks = await load_positions_batched(positions, fear_greed_data)
-                print(f"[DEBUG] data_loader returned {len(stocks)} stocks", flush=True, file=sys.stderr)
-                # Debug: check first stock
-                if stocks:
-                    s0 = stocks[0]
-                    print(f"[DEBUG] First stock: {s0.position.ticker} ds={s0.data_sources} fund={s0.fundamentals is not None} score={s0.score.total_score if s0.score else 'None'}", flush=True, file=sys.stderr)
+                logger.info(f"📊 data_loader: {len(stocks)} Positionen geladen")
             except Exception as e:
-                print(f"[DEBUG] data_loader CRASHED: {type(e).__name__}: {e}", flush=True, file=sys.stderr)
+                logger.error(f"data_loader fehlgeschlagen: {e}")
                 import traceback
                 traceback.print_exc()
                 stocks = [StockFullData(position=p) for p in positions]
@@ -314,8 +308,8 @@ async def _do_refresh():
             portfolio_data["last_analysis"] = report
             logger.info(f"📊 Analyse-Report: Portfolio-Score {report.portfolio_score:.1f} ({report.portfolio_rating.value.upper()})")
 
-            # AI Score-Kommentare NUR zur Analysezeit (spart ~20 Gemini-Calls pro Refresh)
-            if settings.gemini_configured:
+            # AI Score-Kommentare NUR in Production und zur Analysezeit (spart ~20 Gemini-Calls)
+            if settings.gemini_configured and settings.ENVIRONMENT == "production":
                 from datetime import datetime as _dt_sc
                 import zoneinfo as _zi_sc
                 _now_sc = _dt_sc.now(_zi_sc.ZoneInfo("Europe/Berlin"))
@@ -333,9 +327,10 @@ async def _do_refresh():
                 else:
                     logger.info(f"🤖 Score-Kommentare übersprungen (außerhalb Analysezeit)")
 
-            # AI Agent Telegram-Report NUR zur geplanten Analysezeit senden
-            # (verhindert Spam bei manuellen Refreshes und Container-Restarts)
-            if settings.telegram_configured:
+            # AI Agent Telegram-Report NUR in Production senden
+            # (verhindert Doppel-Reports wenn Cloud + lokal gleichzeitig laufen)
+            # Lokal kann der Report manuell via Dashboard-Button getriggert werden.
+            if settings.telegram_configured and settings.ENVIRONMENT == "production":
                 from datetime import datetime as _dt
                 import zoneinfo
                 _now = _dt.now(zoneinfo.ZoneInfo("Europe/Berlin"))
@@ -348,6 +343,8 @@ async def _do_refresh():
                         logger.warning(f"AI Agent Report fehlgeschlagen: {e}")
                 else:
                     logger.info(f"🤖 AI Agent übersprungen (außerhalb Analysezeit, aktuell {_now.strftime('%H:%M')})")
+            elif settings.telegram_configured:
+                logger.info("🤖 AI Agent übersprungen (nur in Production — manuell via Dashboard verfügbar)")
         except Exception as e:
             logger.warning(f"Analyse-Report Generierung fehlgeschlagen: {e}")
 

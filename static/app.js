@@ -953,6 +953,34 @@ async function updateParqet() {
     }
 }
 
+async function triggerReport() {
+    const btn = document.getElementById('btnTelegramReport');
+    const lastUpdate = document.getElementById('lastUpdate');
+
+    btn.classList.add('refreshing');
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/trigger-report', { method: 'POST' });
+        const result = await res.json();
+
+        if (result.status === 'started') {
+            lastUpdate.textContent = `📨 ${result.message}`;
+        } else {
+            lastUpdate.textContent = `⚠️ ${result.message}`;
+        }
+    } catch (err) {
+        console.error('Telegram Report fehlgeschlagen:', err);
+        lastUpdate.textContent = '❌ Report fehlgeschlagen';
+    } finally {
+        // Button nach 3s wieder freigeben (Report läuft im Background)
+        setTimeout(() => {
+            btn.classList.remove('refreshing');
+            btn.disabled = false;
+        }, 3000);
+    }
+}
+
 async function refreshData() {
     await _doRefresh('btnRefresh', '/api/refresh');
 }
@@ -968,9 +996,11 @@ async function refreshScores() {
 async function _doRefresh(btnId, endpoint) {
     const btn = document.getElementById(btnId);
     const btnParqet = document.getElementById('btnUpdateParqet');
+    const btnTelegram = document.getElementById('btnTelegramReport');
     if (btn) btn.classList.add('refreshing');
     if (btn) btn.disabled = true;
     if (btnParqet) btnParqet.disabled = true;
+    if (btnTelegram) btnTelegram.disabled = true;
 
     try {
         const res = await fetch(endpoint, { method: 'POST' });
@@ -992,17 +1022,20 @@ async function _doRefresh(btnId, endpoint) {
                     await loadPortfolio();
                     if (btn) { btn.classList.remove('refreshing'); btn.disabled = false; }
                     if (btnParqet) btnParqet.disabled = false;
+                    if (btnTelegram) btnTelegram.disabled = false;
                 }
             } catch (e) {
                 clearInterval(poll);
                 if (btn) { btn.classList.remove('refreshing'); btn.disabled = false; }
                 if (btnParqet) btnParqet.disabled = false;
+                if (btnTelegram) btnTelegram.disabled = false;
             }
         }, 2000);
     } catch (err) {
         console.error('Analyse fehlgeschlagen:', err);
         if (btn) { btn.classList.remove('refreshing'); btn.disabled = false; }
         if (btnParqet) btnParqet.disabled = false;
+        if (btnTelegram) btnTelegram.disabled = false;
     }
 }
 

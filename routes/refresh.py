@@ -106,3 +106,29 @@ async def trigger_scores_refresh():
     portfolio_data["refreshing"] = True  # SOFORT setzen
     asyncio.create_task(_refresh_data())
     return {"status": "started", "message": f"Neubewertung gestartet ({cleared} Caches gelöscht)!"}
+
+
+@router.post("/api/trigger-report")
+async def trigger_report():
+    """Manuell AI-Report + Telegram senden (für lokale Entwicklung)."""
+    if not settings.telegram_configured:
+        return {"status": "error", "message": "Telegram nicht konfiguriert (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID fehlen)"}
+
+    summary = portfolio_data.get("summary")
+    if not summary or not summary.stocks:
+        return {"status": "error", "message": "Keine Portfolio-Daten — bitte zuerst 'Komplette Analyse' ausführen"}
+
+    scored = [s for s in summary.stocks if s.score and s.position.ticker != "CASH"]
+    if not scored:
+        return {"status": "error", "message": "Keine Scores vorhanden — bitte zuerst 'Komplette Analyse' ausführen"}
+
+    async def _send_report():
+        try:
+            from services.ai_agent import run_daily_report
+            await run_daily_report()
+            logger.info("✅ Manueller AI-Report gesendet")
+        except Exception as e:
+            logger.error(f"Manueller AI-Report fehlgeschlagen: {e}")
+
+    asyncio.create_task(_send_report())
+    return {"status": "started", "message": f"AI-Report wird gesendet ({len(scored)} Aktien mit Score)..."}
