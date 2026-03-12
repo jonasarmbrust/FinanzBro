@@ -14,11 +14,11 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-# Volatile Caches die beim Start gelöscht werden (Sentiment, Technicals)
-VOLATILE_CACHES = {"fear_greed", "technical"}
+# Volatile Caches die beim Start gelöscht werden (Technicals)
+VOLATILE_CACHES = {"technical"}
 
 # Persistente Caches die beim Start erhalten bleiben
-PERSISTENT_CACHES = {"parqet", "currency", "fmp", "yfinance"}
+PERSISTENT_CACHES = {"parqet", "currency", "fmp", "yfinance", "fear_greed"}
 
 
 class CacheManager:
@@ -210,3 +210,29 @@ class CacheManager:
 
         logger.info(f"🗑️ {cleared} Caches gelöscht (Full Reset)")
         return cleared
+
+    @staticmethod
+    def cleanup_stale_files():
+        """Löscht verwaiste Dateien aus der JSON→SQLite Migration.
+
+        Räumt auf:
+        - score_history.json (jetzt in SQLite)
+        - portfolio_history.json.bak (Migrations-Backup)
+        """
+        stale_files = [
+            "score_history.json",
+            "portfolio_history.json.bak",
+        ]
+        removed = 0
+        for filename in stale_files:
+            f = settings.CACHE_DIR / filename
+            if f.exists():
+                try:
+                    f.unlink()
+                    removed += 1
+                    logger.info(f"🧹 Verwaiste Datei gelöscht: {filename}")
+                except Exception as e:
+                    logger.warning(f"Konnte {filename} nicht löschen: {e}")
+        if removed:
+            logger.info(f"🧹 {removed} verwaiste Cache-Dateien aufgeräumt")
+        return removed

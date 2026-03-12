@@ -59,7 +59,7 @@ FinanzBro/
 │   └── demo_data.py        # Synthetische Demo-Daten
 │
 ├── static/                 # Frontend (HTML/JS/CSS)
-└── tests/                  # 227 pytest Tests
+└── tests/                  # 253 pytest Tests
 ```
 
 ## Datenfluss
@@ -122,11 +122,32 @@ graph LR
 
 ## Caching-Strategie
 
+### Cache-Typen
+
 | Cache-Typ | Verhalten | Beispiele |
 |-----------|-----------|-----------|
-| **Volatile** | Beim Start gelöscht | Fear&Greed, Technical |
-| **Persistent** | Bleibt erhalten | Parqet, Currency, FMP, yFinance |
+| **Volatile** | Beim Start gelöscht | Technical |
+| **Persistent** | Bleibt erhalten | Parqet, Currency, FMP, yFinance, Fear&Greed |
 | **State-Level** | Im Memory nach Refresh | Activities, Portfolio Summary |
+| **Analytics** | In-Memory, 15min TTL, nach Refresh invalidiert | Korrelation, Risk, Benchmark |
+
+### TTL pro Fetcher
+
+| Cache | TTL | Begründung |
+|-------|-----|------------|
+| FMP | 24h | Fundamentaldaten ändern sich selten |
+| yFinance | 24h | Analyst Recommendations, ESG |
+| Parqet | 12h | Portfolio-Positionen (Stale-Fallback bei Ablauf) |
+| Currency | 12h | Wechselkurse (<0.5% Änderung/Tag) |
+| Fear & Greed | 6h | Sentiment-Index (persistent über Restarts) |
+| Technical | 4h | RSI, SMA, Momentum (volatile) |
+| Analytics | 15min | Korrelation, Risk, Benchmark (invalidiert nach Refresh) |
+
+### Startup-Cleanup
+
+- Volatile Caches (Technical) werden beim Start gelöscht
+- Verwaiste Dateien aus JSON→SQLite Migration werden aufgeräumt
+- Activities-Cache auf Disk begrenzt auf 500 Einträge (~12 Monate)
 
 ## Cloud Run Deployment
 

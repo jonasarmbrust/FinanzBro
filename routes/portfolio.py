@@ -246,3 +246,47 @@ def _is_finnhub_connected() -> bool:
         return get_streamer().is_connected
     except Exception:
         return False
+
+
+@router.get("/debug/test-sources")
+async def debug_test_sources():
+    """Testet FMP/yFinance/Technical direkt (temporär für Diagnose)."""
+    results = {}
+
+    # 1. Test FMP
+    try:
+        from fetchers.fmp import _fmp_request, _rate_limited, _cache
+        from config import settings as _s
+        results["fmp_config"] = {
+            "demo_mode": _s.demo_mode,
+            "api_key_present": bool(_s.FMP_API_KEY),
+            "api_key_prefix": _s.FMP_API_KEY[:8] + "..." if _s.FMP_API_KEY else "",
+            "base_url": _s.FMP_BASE_URL,
+            "rate_limited": _rate_limited,
+            "cache_entries": len(_cache._memory),
+        }
+        try:
+            data = await _fmp_request("profile", {"symbol": "AAPL"})
+            results["fmp_test"] = {"success": data is not None, "data_type": type(data).__name__, "sample": str(data)[:200] if data else None}
+        except Exception as e:
+            results["fmp_test"] = {"error": f"{type(e).__name__}: {e}"}
+    except Exception as e:
+        results["fmp_error"] = f"{type(e).__name__}: {e}"
+
+    # 2. Test yFinance
+    try:
+        from fetchers.yfinance_data import fetch_yfinance_data
+        yf_data = await fetch_yfinance_data("AAPL")
+        results["yfinance_test"] = {"success": yf_data is not None, "data_type": type(yf_data).__name__}
+    except Exception as e:
+        results["yfinance_test"] = {"error": f"{type(e).__name__}: {e}"}
+
+    # 3. Test Technical
+    try:
+        from fetchers.technical import fetch_technical_indicators
+        tech_data = await fetch_technical_indicators("AAPL")
+        results["technical_test"] = {"success": tech_data is not None, "data_type": type(tech_data).__name__}
+    except Exception as e:
+        results["technical_test"] = {"error": f"{type(e).__name__}: {e}"}
+
+    return results

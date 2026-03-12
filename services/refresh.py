@@ -267,6 +267,14 @@ async def _do_refresh():
         portfolio_data["summary"] = summary
         portfolio_data["last_refresh"] = datetime.now(tz=TZ_BERLIN)
 
+        # Analytics-Cache invalidieren (Korrelation, Risk, Benchmark zeigen sofort neue Daten)
+        try:
+            from routes.analytics import _analytics_cache
+            _analytics_cache.clear()
+            logger.debug("Analytics-Cache nach Refresh invalidiert")
+        except Exception:
+            pass
+
         # Activities cachen (für Attribution, Earnings, Portfolio-History)
         try:
             from fetchers.parqet import fetch_portfolio_activities_raw

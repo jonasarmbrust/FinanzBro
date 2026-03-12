@@ -40,9 +40,12 @@ async def lifespan(app: FastAPI):
     logger.info(f"   Demo-Mode: {settings.demo_mode}")
     logger.info(f"   Finnhub: {'✅ API-Key vorhanden' if settings.FINNHUB_API_KEY else '❌ Kein API-Key'}")
 
-    # Volatile Caches beim Start löschen (FMP, Stocknear, yFinance, etc.)
-    # Parqet-Positionen und Wechselkurse bleiben erhalten
+    # Volatile Caches beim Start löschen (Technicals)
+    # Parqet-Positionen, Wechselkurse und Fear&Greed bleiben erhalten
     CacheManager.clear_volatile_caches()
+
+    # Verwaiste Dateien aus JSON→SQLite Migration aufräumen
+    CacheManager.cleanup_stale_files()
 
     # JSON → SQLite Migration (einmalig, idempotent)
     try:

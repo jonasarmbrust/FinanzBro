@@ -14,7 +14,7 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-_cache = CacheManager("currency", ttl_hours=4)
+_cache = CacheManager("currency", ttl_hours=12)  # Wechselkurse ändern sich <0.5%/Tag
 
 # Default Fallback-Kurse
 DEFAULT_EUR_USD = 1.08
