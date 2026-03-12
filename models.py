@@ -218,6 +218,7 @@ class StockScore(BaseModel):
     breakdown: ScoreBreakdown = Field(default_factory=ScoreBreakdown)
     confidence: float = 0.0  # 0-1, wie viele Datenquellen verfügbar
     summary: str = ""
+    ai_comment: str = ""  # KI-generierter Score-Kommentar
 
 
 class DataSourceStatus(BaseModel):
@@ -236,6 +237,15 @@ class DividendInfo(BaseModel):
     ex_date: Optional[str] = None  # Nächstes Ex-Dividend-Datum
     payment_date: Optional[str] = None  # Nächstes Zahldatum
     frequency: Optional[str] = None  # "Quarterly", "Monthly", "Annual"
+
+
+class EarningsInsight(BaseModel):
+    """KI-generierte Earnings-Analyse."""
+    ticker: str
+    status: str = ""  # "reported", "upcoming", "none"
+    quarter: str = ""
+    beat: Optional[bool] = None
+    key_takeaway: str = ""
 
 
 class StockFullData(BaseModel):

@@ -255,6 +255,19 @@ async def _do_refresh():
             portfolio_data["last_analysis"] = report
             logger.info(f"📊 Analyse-Report: Portfolio-Score {report.portfolio_score:.1f} ({report.portfolio_rating.value.upper()})")
 
+            # AI Score-Kommentare generieren (Gemini 2.0 Flash)
+            if settings.gemini_configured:
+                try:
+                    from services.score_commentary import generate_score_commentaries
+                    commentaries = await generate_score_commentaries(stocks)
+                    for stock in stocks:
+                        if stock.score and stock.position.ticker in commentaries:
+                            stock.score.ai_comment = commentaries[stock.position.ticker]
+                    if commentaries:
+                        logger.info(f"🤖 AI-Kommentare: {len(commentaries)} Aktien kommentiert")
+                except Exception as e:
+                    logger.warning(f"Score-Kommentare fehlgeschlagen: {e}")
+
             # AI Agent Telegram-Report nach erfolgreicher Analyse senden
             if settings.telegram_configured:
                 try:

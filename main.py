@@ -82,6 +82,21 @@ async def lifespan(app: FastAPI):
         )
         logger.info("\U0001f4ca Vollständige Analyse geplant um 16:15 CET")
 
+        # Weekly Digest (Sonntag 18:00 CET)
+        async def _run_weekly_digest():
+            try:
+                from services.weekly_digest import send_weekly_digest
+                await send_weekly_digest()
+            except Exception as e:
+                logger.warning(f"Weekly Digest fehlgeschlagen: {e}")
+
+        scheduler.add_job(
+            _run_weekly_digest, "cron",
+            day_of_week="sun", hour=18, minute=0,
+            id="weekly_digest",
+        )
+        logger.info("📧 Wöchentlicher Digest geplant: Sonntag 18:00 CET")
+
         # AI Finance Agent wird automatisch nach jeder Analyse in _do_refresh() getriggert
         if settings.telegram_configured:
             logger.info("🤖 AI Finance Agent: Wird nach Analyse automatisch getriggert (Telegram-Report)")

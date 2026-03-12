@@ -214,11 +214,17 @@ def _apply_price_and_metadata(pos, prices, daily_changes, name_map, converter, p
 
     # Set price from yFinance → EUR
     if pos.ticker in prices and prices[pos.ticker] > 0:
+        # yFinance liefert den Preis in Originalwaehrung (USD, DKK, etc.)
+        # → muss konvertiert werden
         raw_price = prices[pos.ticker]
+        pos.current_price = converter.to_eur(raw_price, pos.ticker)
+    elif pos.currency == "EUR":
+        # Fallback: Performance API Preis ist bereits in EUR
+        # → KEINE Konvertierung noetig!
+        pass
     else:
-        raw_price = pos.current_price
-
-    pos.current_price = converter.to_eur(raw_price, pos.ticker)
+        # Fallback fuer nicht-EUR Positionen ohne yFinance-Preis
+        pos.current_price = converter.to_eur(pos.current_price, pos.ticker)
     pos.price_currency = "EUR"
 
     # Daily change

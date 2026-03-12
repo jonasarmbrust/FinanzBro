@@ -6,8 +6,11 @@ Unterstützte Befehle:
   /score AAPL — Score einer einzelnen Aktie
   /refresh — Full Refresh triggern
   /news   — Freie Marktanalyse durch Gemini 2.5 Pro
+  /earnings — Earnings-Analyse für Portfolio-Aktien
+  /risk [szenario] — Risiko-Szenario-Analyse
   /start  — Willkommensnachricht
   /help   — Befehlsübersicht
+  (Freitext) — Portfolio-Chat mit KI
 """
 import logging
 from typing import Optional
@@ -50,16 +53,23 @@ async def handle_update(update: dict) -> None:
         await _cmd_refresh(chat_id)
     elif cmd == "/news":
         await _cmd_news(chat_id)
+    elif cmd == "/earnings":
+        await _cmd_earnings(chat_id)
+    elif cmd == "/risk":
+        scenario = " ".join(args) if args else None
+        await _cmd_risk(chat_id, scenario)
     elif cmd == "/start":
         await _cmd_start(chat_id)
     elif cmd == "/help":
         await _cmd_help(chat_id)
-    else:
-        # Unbekannter Befehl → Hinweis
+    elif cmd.startswith("/"):
         await send_message(
             "❓ Unbekannter Befehl. Tippe /help für eine Übersicht.",
             chat_id=chat_id,
         )
+    else:
+        # Freitext → Portfolio-Chat
+        await _cmd_chat(chat_id, text)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -89,9 +99,12 @@ async def _cmd_help(chat_id: str):
         "📋 *FinanzBro Befehle*\n\n"
         "  /portfolio — Portfolio mit Scores und P&L\n"
         "  /score AAPL — Detail-Score einer Aktie\n"
+        "  /earnings — Earnings-Analyse\n"
+        "  /risk — Risiko-Szenarien\n"
+        "  /news — Marktanalyse\n"
         "  /refresh — Full Refresh starten\n"
-        "  /news — Marktanalyse (Gemini 2.5 Pro)\n"
-        "  /help — Diese Übersicht\n",
+        "  /help — Diese Übersicht\n\n"
+        "💬 Oder einfach eine Frage schreiben!",
         chat_id=chat_id,
     )
 
@@ -218,6 +231,9 @@ async def _cmd_score(chat_id: str, ticker: Optional[str] = None):
 
     if sc.summary:
         lines.append(f"\n📝 {sc.summary}")
+
+    if sc.ai_comment:
+        lines.append(f"\n🤖 {sc.ai_comment}")
 
     await send_message("\n".join(lines), chat_id=chat_id)
 
@@ -401,3 +417,209 @@ def _get_portfolio_context() -> str:
         return "\n".join(lines) if lines else ""
     except Exception:
         return ""
+
+
+# ─────────────────────────────────────────────────────────────
+# Feature 2: /earnings — Earnings-Analyse
+# ─────────────────────────────────────────────────────────────
+
+async def _cmd_earnings(chat_id: str):
+    """Earnings-Analyse für Portfolio-Aktien via Gemini 2.5 Pro."""
+    from services.telegram import send_message
+    from state import portfolio_data
+
+    summary = portfolio_data.get("summary")
+    if not summary or not summary.stocks:
+        await send_message("⚠️ Keine Portfolio-Daten. Bitte /refresh starten.", chat_id=chat_id)
+        return
+
+    if not settings.gemini_configured:
+        await send_message("⚠️ Gemini nicht konfiguriert.", chat_id=chat_id)
+        return
+
+    await send_message("📅 Analysiere Earnings... (dauert ~10s)", chat_id=chat_id)
+
+    tickers = [s.position.ticker for s in summary.stocks if s.position.ticker != "CASH"]
+
+    try:
+        from services.earnings_ai import analyze_earnings
+        results = await analyze_earnings(tickers)
+
+        if not results:
+            await send_message("ℹ️ Keine Earnings-Daten gefunden.", chat_id=chat_id)
+            return
+
+        lines = ["📅 *Earnings-Übersicht*\n"]
+
+        # Gruppiert nach Status
+        reported = [r for r in results if r.status == "reported"]
+        upcoming = [r for r in results if r.status == "upcoming"]
+
+        if reported:
+            lines.append("📊 *Kürzlich berichtet:*")
+            for r in reported:
+                beat_icon = "✅" if r.beat else "❌" if r.beat is False else "➡️"
+                lines.append(f"  {beat_icon} *{r.ticker}* ({r.quarter}): {r.key_takeaway}")
+            lines.append("")
+
+        if upcoming:
+            lines.append("🔜 *Bald anstehend:*")
+            for r in upcoming:
+                lines.append(f"  📅 *{r.ticker}* ({r.quarter}): {r.key_takeaway}")
+
+        await send_message("\n".join(lines), chat_id=chat_id)
+        logger.info(f"✅ /earnings: {len(results)} Aktien analysiert")
+
+    except Exception as e:
+        logger.error(f"/earnings fehlgeschlagen: {e}")
+        await send_message(f"❌ Earnings-Analyse fehlgeschlagen: {e}", chat_id=chat_id)
+
+
+# ─────────────────────────────────────────────────────────────
+# Feature 3: Portfolio-Chat (Freitext)
+# ─────────────────────────────────────────────────────────────
+
+async def _cmd_chat(chat_id: str, question: str):
+    """Freier Portfolio-Chat mit Gemini 2.5 Pro."""
+    from services.telegram import send_message
+
+    if not settings.gemini_configured:
+        await send_message(
+            "💬 Chat ist nicht verfügbar (Gemini nicht konfiguriert).\n"
+            "Nutze /help für verfügbare Befehle.",
+            chat_id=chat_id,
+        )
+        return
+
+    try:
+        from services.vertex_ai import get_client, get_grounded_config, get_cached_content
+
+        client = get_client()
+        portfolio_context = _get_portfolio_context()
+
+        system_prompt = (
+            "Du bist FinanzBro, ein intelligenter Portfolio-Assistent. "
+            "Antworte kurz und prägnant auf Deutsch (max 800 Zeichen). "
+            "Nutze Emojis sparsam. Sei direkt und hilfreich.\n\n"
+        )
+        if portfolio_context:
+            system_prompt += (
+                "Hier ist der aktuelle Portfolio-Status:\n"
+                f"{portfolio_context}\n\n"
+            )
+
+        # Versuche mit Search Grounding für aktuelle Daten
+        config = get_grounded_config()
+
+        response = client.models.generate_content(
+            model="gemini-2.5-pro",
+            contents=f"{system_prompt}User-Frage: {question}",
+            config=config,
+        )
+
+        result = response.text.strip() if response.text else "Leider konnte ich keine Antwort generieren."
+
+        # Auf 4000 Zeichen begrenzen (Telegram-Limit)
+        if len(result) > 4000:
+            result = result[:3950] + "\n\n_(gekürzt)_"
+
+        await send_message(f"💬 {result}", chat_id=chat_id)
+        logger.info(f"✅ Chat beantwortet ({len(result)} Zeichen)")
+
+    except Exception as e:
+        logger.error(f"Chat fehlgeschlagen: {e}")
+        await send_message(
+            "❌ Konnte deine Frage nicht beantworten. Versuche es später erneut.",
+            chat_id=chat_id,
+        )
+
+
+# ─────────────────────────────────────────────────────────────
+# Feature 5: /risk — Risiko-Szenario-Analyse
+# ─────────────────────────────────────────────────────────────
+
+_RISK_SCENARIOS = {
+    "rezession": "Eine globale Rezession mit fallenden Unternehmensgewinnen, steigender Arbeitslosigkeit und einbrechendem Konsum.",
+    "zinserhöhung": "Eine überraschende Zinserhöhung der Zentralbanken um 100+ Basispunkte.",
+    "techcrash": "Ein Tech-Crash mit 30-40% Kurseinbruch bei Technologieaktien durch Bewertungskorrektur.",
+    "inflation": "Stagflation: hartnäckig hohe Inflation (>6%) bei gleichzeitig stagnierendem Wirtschaftswachstum.",
+    "geopolitik": "Eskalation geopolitischer Spannungen mit Handelskriegen und Lieferketten-Störungen.",
+}
+
+
+async def _cmd_risk(chat_id: str, scenario: Optional[str] = None):
+    """Risiko-Szenario-Analyse via Gemini 2.5 Pro."""
+    from services.telegram import send_message
+
+    if not scenario:
+        # Übersicht zeigen
+        lines = ["🛡️ *Risiko-Szenarien*\n", "Verfügbare Szenarien:\n"]
+        for key, desc in _RISK_SCENARIOS.items():
+            lines.append(f"  `/risk {key}` — {desc[:60]}...")
+        lines.append("\nBeispiel: `/risk rezession`")
+        await send_message("\n".join(lines), chat_id=chat_id)
+        return
+
+    scenario_key = scenario.lower().strip()
+    if scenario_key not in _RISK_SCENARIOS:
+        await send_message(
+            f"⚠️ Unbekanntes Szenario: `{scenario}`\n"
+            "Tippe /risk für verfügbare Szenarien.",
+            chat_id=chat_id,
+        )
+        return
+
+    if not settings.gemini_configured:
+        await send_message("⚠️ Gemini nicht konfiguriert.", chat_id=chat_id)
+        return
+
+    await send_message(f"🛡️ Analysiere Szenario: *{scenario_key.title()}*... (dauert ~15s)", chat_id=chat_id)
+
+    try:
+        from services.vertex_ai import get_client, get_grounded_config
+
+        client = get_client()
+        portfolio_context = _get_portfolio_context()
+
+        if not portfolio_context:
+            await send_message("⚠️ Keine Portfolio-Daten geladen.", chat_id=chat_id)
+            return
+
+        scenario_desc = _RISK_SCENARIOS[scenario_key]
+
+        prompt = (
+            "Du bist ein erfahrener Risikoanalyst. Analysiere wie folgendes Szenario "
+            "das unten stehende Portfolio treffen würde.\n\n"
+            f"SZENARIO: {scenario_desc}\n\n"
+            f"PORTFOLIO:\n{portfolio_context}\n\n"
+            "Erstelle eine kompakte Analyse auf Deutsch (max 1000 Zeichen):\n"
+            "1. Geschätzter Portfolio-Impact (leicht/mittel/schwer)\n"
+            "2. Die 3 am stärksten gefährdeten Positionen und warum\n"
+            "3. Die 2-3 resilientesten Positionen\n"
+            "4. Eine konkrete Handlungsempfehlung\n\n"
+            "Nutze Emojis für Übersichtlichkeit."
+        )
+
+        config = get_grounded_config()
+
+        response = client.models.generate_content(
+            model="gemini-2.5-pro",
+            contents=prompt,
+            config=config,
+        )
+
+        result = response.text.strip() if response.text else "Analyse nicht verfügbar."
+
+        if len(result) > 4000:
+            result = result[:3950] + "\n\n_(gekürzt)_"
+
+        await send_message(
+            f"🛡️ *Risiko-Analyse: {scenario_key.title()}*\n\n{result}",
+            chat_id=chat_id,
+        )
+        logger.info(f"✅ /risk {scenario_key} ausgeführt ({len(result)} Zeichen)")
+
+    except Exception as e:
+        logger.error(f"/risk fehlgeschlagen: {e}")
+        await send_message(f"❌ Risiko-Analyse fehlgeschlagen: {e}", chat_id=chat_id)
+
