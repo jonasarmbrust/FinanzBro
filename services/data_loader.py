@@ -89,8 +89,12 @@ async def load_position_data(
         tech_data = data.get("technical")
         yf_data = data.get("yfinance")
 
-        # yFinance Fundamentals Fallback
-        fund, analyst = await _yfinance_fundamentals_fallback(pos, fund, analyst)
+        # yFinance Fundamentals Fallback (returns fund, analyst, esg_risk_score)
+        fund, analyst, esg_fallback = await _yfinance_fundamentals_fallback(pos, fund, analyst)
+
+        # Merge ESG aus Fundamentals-Fallback in yfinance-Daten
+        if esg_fallback is not None and yf_data and yf_data.esg_risk_score is None:
+            yf_data.esg_risk_score = esg_fallback
 
         # Track data source status
         ds.fmp = fund is not None and any([
@@ -252,8 +256,17 @@ async def _yfinance_fundamentals_fallback(pos, fund, analyst):
         fund.pe_ratio, fund.roe, fund.gross_margin,
         fund.debt_to_equity, fund.market_cap
     ])
+    esg_fallback = None
     if fund_has_data:
-        return fund, analyst
+        # Auch bei vorhandenen Fundamentals ESG holen (wenn nötig)
+        try:
+            from fetchers.yfinance_data import fetch_yfinance_fundamentals
+            yf_fund = await fetch_yfinance_fundamentals(pos.ticker)
+            if yf_fund:
+                esg_fallback = yf_fund.get("esg_risk_score")
+        except Exception:
+            pass
+        return fund, analyst, esg_fallback
 
     try:
         from fetchers.yfinance_data import fetch_yfinance_fundamentals
@@ -270,6 +283,8 @@ async def _yfinance_fundamentals_fallback(pos, fund, analyst):
                 if yf_ad and (yf_ad.num_analysts > 0 or yf_ad.target_price):
                     analyst = yf_ad
                     logger.info(f"yFinance Analyst-Fallback fuer {pos.ticker}")
+            # ESG-Score aus ticker.info (wird in fetch_yfinance_fundamentals extrahiert)
+            esg_fallback = yf_fund.get("esg_risk_score")
             # Name und Sektor
             if not pos.name or pos.name == pos.ticker:
                 yf_name = yf_fund.get("name")
@@ -282,4 +297,4 @@ async def _yfinance_fundamentals_fallback(pos, fund, analyst):
     except Exception as e:
         logger.debug(f"yFinance Fundamentals-Fallback fehlgeschlagen fuer {pos.ticker}: {e}")
 
-    return fund, analyst
+    return fund, analyst, esg_fallback

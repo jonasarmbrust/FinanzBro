@@ -167,20 +167,9 @@ def _fetch_yf_sync(ticker_symbol: str):
     except Exception:
         pass
 
-    # Fallback: ESG aus ticker.info (nicht immer verfügbar)
-    if result.esg_risk_score is None:
-        try:
-            info = ticker.info or {}
-            for key in ("esgScore", "totalEsg", "overallRisk"):
-                val = info.get(key)
-                if val is not None:
-                    import math
-                    fval = float(val)
-                    if not math.isnan(fval) and fval > 0:
-                        result.esg_risk_score = fval
-                        break
-        except Exception:
-            pass
+    # Fallback: ESG aus ticker.info wird in fetch_yfinance_fundamentals() geholt,
+    # wo ticker.info ohnehin geladen wird. Hier NICHT aufrufen wegen Performance
+    # (ticker.info = extra HTTP Request ~3-5s pro Ticker).
 
     # --- 4. Earnings Growth YoY ---
     try:
@@ -520,11 +509,26 @@ async def fetch_yfinance_fundamentals(ticker_symbol: str) -> dict:
             sector = info.get("sector", "")
             name = info.get("shortName") or info.get("longName") or ""
 
+            # ESG aus ticker.info extrahieren (kein Extra-Request weil info schon geladen)
+            esg_score = None
+            for esg_key in ("esgScore", "totalEsg", "overallRisk"):
+                val = info.get(esg_key)
+                if val is not None:
+                    import math
+                    try:
+                        fval = float(val)
+                        if not math.isnan(fval) and fval > 0:
+                            esg_score = fval
+                            break
+                    except (ValueError, TypeError):
+                        pass
+
             return {
                 "fundamentals": fd,
                 "analyst": ad,
                 "sector": sector,
                 "name": name,
+                "esg_risk_score": esg_score,
             }
         except Exception as e:
             logger.debug(f"yfinance Fundamentals fehlgeschlagen fuer {ticker_symbol}: {e}")
@@ -542,6 +546,7 @@ async def fetch_yfinance_fundamentals(ticker_symbol: str) -> dict:
                 "analyst": result["analyst"].model_dump(),
                 "sector": result["sector"],
                 "name": result["name"],
+                "esg_risk_score": result.get("esg_risk_score"),
             }
             _cache.set(cache_key, cache_data)
             _cache.flush()
