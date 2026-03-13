@@ -31,6 +31,58 @@ setup_logging(settings.ENVIRONMENT)
 logger = logging.getLogger(__name__)
 
 
+def subscribe_portfolio_tickers():
+    """Subscribt Portfolio-Ticker bei allen aktiven WebSocket-Streamern.
+
+    Kann jederzeit aufgerufen werden — z.B. nach Startup oder Token-Renewal.
+    """
+    summary = portfolio_data.get("summary")
+    if not summary or not summary.stocks:
+        logger.warning("Streamer-Subscribe: Keine Portfolio-Positionen vorhanden")
+        return
+
+    tickers = [s.position.ticker for s in summary.stocks]
+    logger.info(f"Subscribing {len(tickers)} Ticker bei WebSocket-Streamern")
+
+    # Finnhub: US-Ticker
+    try:
+        from fetchers.finnhub_ws import get_streamer
+        streamer = get_streamer()
+        if streamer.is_connected:
+            streamer.subscribe(tickers)
+    except Exception:
+        pass
+
+    # yfinance WS: Alle Ticker (inkl. Nicht-US)
+    try:
+        from fetchers.yfinance_ws import get_yf_streamer
+        streamer = get_yf_streamer()
+        if streamer.is_connected:
+            streamer.subscribe(tickers)
+    except Exception:
+        pass
+
+
+async def reload_portfolio_and_subscribe():
+    """Lädt Portfolio von Parqet neu und subscribt Ticker bei WebSocket-Streamern.
+
+    Wird nach erfolgreicher Token-Erneuerung (OAuth Callback) aufgerufen.
+    """
+    try:
+        await _update_parqet()
+        # yFinance Kurse laden
+        try:
+            from services.portfolio_builder import update_yfinance_prices
+            await update_yfinance_prices()
+        except Exception as e:
+            logger.warning(f"yFinance nach Token-Renewal fehlgeschlagen: {e}")
+
+        # Ticker bei Streamern subscriben
+        subscribe_portfolio_tickers()
+        logger.info("Portfolio nach Token-Renewal neu geladen und Streamer subscribed")
+    except Exception as e:
+        logger.error(f"Portfolio-Reload nach Token-Renewal fehlgeschlagen: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """App startup/shutdown."""
@@ -110,22 +162,21 @@ async def lifespan(app: FastAPI):
         from fetchers.yfinance_ws import get_yf_streamer
         yf_streamer = get_yf_streamer()
         await yf_streamer.start()
+        logger.info("yfinance WebSocket gestartet")
     except Exception as e:
-        logger.warning(f"yfinance WS-Start fehlgeschlagen: {e}")
+        logger.warning(f"yfinance WS-Start fehlgeschlagen: {type(e).__name__}: {e}")
 
     # Subscribe portfolio tickers after Parqet loads
     async def _subscribe_streamers():
         """Warte auf Portfolio-Daten, dann Ticker bei Streamern abonnieren."""
-        await asyncio.sleep(15)  # Warte bis Parqet geladen ist
-        summary = portfolio_data.get("summary")
-        if summary and summary.stocks:
-            tickers = [s.position.ticker for s in summary.stocks]
-            # Finnhub: US-Ticker
-            if finnhub_streamer:
-                finnhub_streamer.subscribe(tickers)
-            # yfinance WS: Alle Ticker (inkl. Nicht-US)
-            if yf_streamer:
-                yf_streamer.subscribe(tickers)
+        try:
+            # Warte auf Parqet-Load statt fixer 15s — max 60s Timeout
+            await asyncio.wait_for(_startup_done.wait(), timeout=60.0)
+        except asyncio.TimeoutError:
+            logger.warning("Streamer-Subscribe: Timeout beim Warten auf Portfolio-Daten")
+            return
+
+        subscribe_portfolio_tickers()
 
     if finnhub_streamer or yf_streamer:
         asyncio.create_task(_subscribe_streamers())

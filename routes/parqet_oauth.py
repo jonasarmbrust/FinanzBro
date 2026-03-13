@@ -63,9 +63,14 @@ async def parqet_callback(request: Request, code: str = "", state: str = "", err
     token = await exchange_code_for_tokens(code, state, redirect_uri)
 
     if token:
+        # Portfolio neu laden und WebSocket-Streamer subscriben (Background)
+        import asyncio
+        from main import reload_portfolio_and_subscribe
+        asyncio.create_task(reload_portfolio_and_subscribe())
+
         return HTMLResponse(
             "<h2>✅ Parqet verbunden!</h2>"
-            "<p>Tokens gespeichert. Die App kann jetzt Portfolio-Daten laden.</p>"
+            "<p>Tokens gespeichert. Portfolio wird automatisch geladen...</p>"
             "<p><a href='/'>→ Zum Dashboard</a></p>"
         )
     else:

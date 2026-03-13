@@ -83,34 +83,50 @@ def _fetch_yf_sync(ticker_symbol: str):
     try:
         recs = ticker.recommendations
         if recs is not None and not recs.empty:
-            recent = recs.tail(10)
-            grades = []
-            for _, row in recent.iterrows():
-                grade = ""
-                if "toGrade" in row:
-                    grade = str(row["toGrade"]).lower()
-                elif "To Grade" in row:
-                    grade = str(row["To Grade"]).lower()
-                if grade:
-                    grades.append(grade)
-
-            if grades:
-                buy_keywords = {"buy", "strong buy", "outperform", "overweight", "positive"}
-                hold_keywords = {"hold", "neutral", "equal-weight", "market perform", "sector perform"}
-                sell_keywords = {"sell", "strong sell", "underperform", "underweight", "negative"}
-
-                buy_count = sum(1 for g in grades if g in buy_keywords)
-                hold_count = sum(1 for g in grades if g in hold_keywords)
-                sell_count = sum(1 for g in grades if g in sell_keywords)
-                total = buy_count + hold_count + sell_count
-
+            # yfinance >= 1.2.0: aggregated columns [period, strongBuy, buy, hold, sell, strongSell]
+            if "strongBuy" in recs.columns:
+                row = recs.iloc[0]  # Aktueller Monat (period="0m")
+                strong_buy = int(row.get("strongBuy", 0) or 0)
+                buy_count = int(row.get("buy", 0) or 0)
+                hold_count = int(row.get("hold", 0) or 0)
+                sell_count = int(row.get("sell", 0) or 0)
+                strong_sell = int(row.get("strongSell", 0) or 0)
+                total = strong_buy + buy_count + hold_count + sell_count + strong_sell
                 if total > 0:
-                    if buy_count >= hold_count and buy_count >= sell_count:
+                    buy_total = strong_buy + buy_count
+                    sell_total = sell_count + strong_sell
+                    if buy_total > sell_total and buy_total > hold_count:
                         result.recommendation_trend = "Buy"
-                    elif sell_count >= buy_count and sell_count >= hold_count:
+                    elif sell_total > buy_total and sell_total > hold_count:
                         result.recommendation_trend = "Sell"
                     else:
                         result.recommendation_trend = "Hold"
+            else:
+                # Legacy yfinance (<1.0): individual analyst ratings with toGrade
+                recent = recs.tail(10)
+                grades = []
+                for _, row in recent.iterrows():
+                    grade = ""
+                    if "toGrade" in row:
+                        grade = str(row["toGrade"]).lower()
+                    elif "To Grade" in row:
+                        grade = str(row["To Grade"]).lower()
+                    if grade:
+                        grades.append(grade)
+                if grades:
+                    buy_keywords = {"buy", "strong buy", "outperform", "overweight", "positive"}
+                    sell_keywords = {"sell", "strong sell", "underperform", "underweight", "negative"}
+                    buy_count = sum(1 for g in grades if g in buy_keywords)
+                    hold_count = sum(1 for g in grades if g not in buy_keywords and g not in sell_keywords)
+                    sell_count = sum(1 for g in grades if g in sell_keywords)
+                    total = buy_count + hold_count + sell_count
+                    if total > 0:
+                        if buy_count >= hold_count and buy_count >= sell_count:
+                            result.recommendation_trend = "Buy"
+                        elif sell_count >= buy_count and sell_count >= hold_count:
+                            result.recommendation_trend = "Sell"
+                        else:
+                            result.recommendation_trend = "Hold"
     except Exception:
         pass
 
@@ -121,10 +137,14 @@ def _fetch_yf_sync(ticker_symbol: str):
             buy_count = 0
             sell_count = 0
             for _, row in insiders.iterrows():
-                transaction = str(row.get("Transaction", row.get("Text", ""))).lower()
-                if "purchase" in transaction or "buy" in transaction:
+                # yfinance 1.2.0: Transaction column is often empty,
+                # actual text is in Text column (e.g. "Sale at price 409.52")
+                text = str(row.get("Text", "") or "").lower()
+                transaction = str(row.get("Transaction", "") or "").lower()
+                combined = text or transaction  # Prefer Text, fallback Transaction
+                if "purchase" in combined or "buy" in combined or "acquisition" in combined:
                     buy_count += 1
-                elif "sale" in transaction or "sell" in transaction:
+                elif "sale" in combined or "sell" in combined or "disposition" in combined:
                     sell_count += 1
             result.insider_buy_count = buy_count
             result.insider_sell_count = sell_count
@@ -133,6 +153,7 @@ def _fetch_yf_sync(ticker_symbol: str):
 
     # --- 3. ESG Risk Score ---
     try:
+        # Primary: ticker.sustainability (may be discontinued by Yahoo)
         sustainability = ticker.sustainability
         if sustainability is not None and not sustainability.empty:
             if "totalEsg" in sustainability.index:
@@ -145,6 +166,21 @@ def _fetch_yf_sync(ticker_symbol: str):
                     result.esg_risk_score = float(esg_val)
     except Exception:
         pass
+
+    # Fallback: ESG aus ticker.info (nicht immer verfügbar)
+    if result.esg_risk_score is None:
+        try:
+            info = ticker.info or {}
+            for key in ("esgScore", "totalEsg", "overallRisk"):
+                val = info.get(key)
+                if val is not None:
+                    import math
+                    fval = float(val)
+                    if not math.isnan(fval) and fval > 0:
+                        result.esg_risk_score = fval
+                        break
+        except Exception:
+            pass
 
     # --- 4. Earnings Growth YoY ---
     try:
