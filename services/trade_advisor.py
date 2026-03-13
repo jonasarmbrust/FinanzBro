@@ -655,8 +655,9 @@ async def _call_gemini_chat(
     summary,
 ) -> str:
     """Gemini-Call für freie Chat-Konversation mit Function Calling."""
+    import asyncio
     from services.vertex_ai import get_client, get_cached_content
-    from google.genai.types import Tool, GoogleSearch, FunctionDeclaration, Part, Content
+    from google.genai.types import Tool, FunctionDeclaration, Part, Content
 
     client = get_client()
 
@@ -717,11 +718,14 @@ async def _call_gemini_chat(
     # Aktuelle Nachricht hinzufügen
     contents.append(Content(role="user", parts=[Part(text=message)]))
 
-    # Gemini-Call
-    response = client.models.generate_content(
-        model="gemini-2.5-pro",
-        contents=contents,
-        config=config,
+    # Gemini-Call (async um Event-Loop nicht zu blockieren)
+    response = await asyncio.wait_for(
+        client.aio.models.generate_content(
+            model="gemini-2.5-pro",
+            contents=contents,
+            config=config,
+        ),
+        timeout=90.0,
     )
 
     # Function Calling Loop (max 3 Runden)
@@ -762,12 +766,16 @@ async def _call_gemini_chat(
 
         all_contents.append(Content(role="user", parts=tool_results))
 
-        response = client.models.generate_content(
-            model="gemini-2.5-pro",
-            contents=all_contents,
-            config=config,
+        response = await asyncio.wait_for(
+            client.aio.models.generate_content(
+                model="gemini-2.5-pro",
+                contents=all_contents,
+                config=config,
+            ),
+            timeout=90.0,
         )
         all_contents.append(response.candidates[0].content)
 
     return response.text.strip() if response.text else "Keine Antwort erhalten."
+
 
