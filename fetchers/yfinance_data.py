@@ -451,8 +451,8 @@ async def fetch_yfinance_fundamentals(ticker_symbol: str) -> dict:
             fd.market_cap = _safe_float(info, "marketCap")
             fd.beta = _safe_float(info, "beta")
             fd.dividend_yield = _safe_float(info, "dividendYield")
-            if fd.dividend_yield and fd.dividend_yield < 1:
-                fd.dividend_yield = round(fd.dividend_yield * 100, 2)
+            # yfinance dividendYield ist bereits in Prozent (z.B. 0.65 = 0.65%, 4.88 = 4.88%)
+            # KEINE Konvertierung nötig!
 
             # --- Wachstum ---
             eg = _safe_float(info, "earningsGrowth")

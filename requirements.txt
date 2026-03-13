@@ -11,6 +11,7 @@ pydantic-settings>=2.0
 
 # Finanzdaten
 yfinance>=1.2.0
+lxml>=5.0  # Required by yfinance for earnings_dates (pd.read_html)
 websockets==14.1
 
 # Scheduling

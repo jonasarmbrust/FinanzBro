@@ -2053,3 +2053,154 @@ function renderAdvisorResult(data) {
 
     input.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 })();
+
+
+// ==================== AI Advisor Chat ====================
+let _chatHistory = [];
+
+function switchAdvisorMode(mode) {
+    document.querySelectorAll('.advisor-mode-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.advisor-mode-content').forEach(c => c.classList.remove('active'));
+    if (mode === 'chat') {
+        document.getElementById('advisorModeChat').classList.add('active');
+        document.getElementById('advisorChatMode').classList.add('active');
+        // Auto-focus input
+        setTimeout(() => document.getElementById('advisorChatInput')?.focus(), 100);
+    } else {
+        document.getElementById('advisorModeAnalyse').classList.add('active');
+        document.getElementById('advisorAnalyseMode').classList.add('active');
+    }
+}
+
+function sendChatSuggestion(btn) {
+    const text = btn.textContent.trim();
+    document.getElementById('advisorChatInput').value = text;
+    sendAdvisorChat();
+}
+
+function handleChatKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendAdvisorChat();
+    }
+}
+
+function clearAdvisorChat() {
+    _chatHistory = [];
+    const messagesDiv = document.getElementById('advisorChatMessages');
+    messagesDiv.innerHTML = `
+        <div class="advisor-chat-welcome">
+            <p>👋 Hallo! Ich bin dein Portfolio-Berater.</p>
+            <p>Du kannst mich alles zu deinem Portfolio fragen. Beispiele:</p>
+            <div class="advisor-chat-suggestions">
+                <button class="advisor-chat-suggestion" onclick="sendChatSuggestion(this)">Wie diversifiziert ist mein Portfolio?</button>
+                <button class="advisor-chat-suggestion" onclick="sendChatSuggestion(this)">Was passiert wenn der USD 10% fällt?</button>
+                <button class="advisor-chat-suggestion" onclick="sendChatSuggestion(this)">Welche Aktie hat das beste Chance/Risiko-Verhältnis?</button>
+                <button class="advisor-chat-suggestion" onclick="sendChatSuggestion(this)">Wie hoch ist mein Klumpenrisiko im Tech-Sektor?</button>
+            </div>
+        </div>`;
+}
+
+async function sendAdvisorChat() {
+    const input = document.getElementById('advisorChatInput');
+    const message = input.value.trim();
+    if (!message) return;
+
+    const btn = document.getElementById('advisorChatSendBtn');
+    const btnText = btn.querySelector('.chat-send-text');
+    const btnLoad = btn.querySelector('.chat-send-loading');
+    const messagesDiv = document.getElementById('advisorChatMessages');
+
+    // Welcome entfernen beim ersten Senden
+    const welcome = messagesDiv.querySelector('.advisor-chat-welcome');
+    if (welcome) welcome.remove();
+
+    // User-Nachricht anzeigen
+    messagesDiv.innerHTML += `
+        <div class="chat-msg chat-msg-user">
+            <div class="chat-msg-content">${_escapeHtml(message)}</div>
+        </div>`;
+
+    input.value = '';
+    input.disabled = true;
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoad.style.display = 'inline';
+
+    // Typing-Indikator
+    messagesDiv.innerHTML += `
+        <div class="chat-msg chat-msg-ai chat-msg-typing" id="chatTyping">
+            <div class="chat-msg-content">
+                <div class="chat-typing-dots"><span></span><span></span><span></span></div>
+            </div>
+        </div>`;
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    try {
+        const resp = await fetch('/api/advisor/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ message, history: _chatHistory }),
+        });
+        const data = await resp.json();
+
+        // Typing-Indikator entfernen
+        document.getElementById('chatTyping')?.remove();
+
+        if (data.error) {
+            messagesDiv.innerHTML += `
+                <div class="chat-msg chat-msg-ai">
+                    <div class="chat-msg-content chat-msg-error">⚠️ ${data.error}</div>
+                </div>`;
+        } else {
+            _chatHistory = data.history || [];
+            const rendered = _renderMarkdown(data.response || '');
+            messagesDiv.innerHTML += `
+                <div class="chat-msg chat-msg-ai">
+                    <div class="chat-msg-content">${rendered}</div>
+                </div>`;
+        }
+    } catch (e) {
+        document.getElementById('chatTyping')?.remove();
+        messagesDiv.innerHTML += `
+            <div class="chat-msg chat-msg-ai">
+                <div class="chat-msg-content chat-msg-error">❌ ${e.message}</div>
+            </div>`;
+    }
+
+    input.disabled = false;
+    btn.disabled = false;
+    btnText.style.display = 'inline';
+    btnLoad.style.display = 'none';
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    input.focus();
+}
+
+function _escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function _renderMarkdown(text) {
+    // Einfaches Markdown-Rendering
+    let html = _escapeHtml(text);
+    // Bold
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Italic
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    // Headers
+    html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+    html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
+    // Unordered lists
+    html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+    // Numbered lists
+    html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+    // Line breaks
+    html = html.replace(/\n/g, '<br>');
+    // Clean up duplicate <ul> tags
+    html = html.replace(/<\/ul><br><ul>/g, '');
+    return html;
+}

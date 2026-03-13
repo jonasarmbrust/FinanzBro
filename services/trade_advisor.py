@@ -544,3 +544,206 @@ def _parse_ai_response(raw: str) -> dict:
             "external_analysis": "",
             "raw_response": raw,
         }
+
+
+# ─────────────────────────────────────────────────────────────
+# Chat Advisor — Freie Konversation mit Portfolio-Kontext
+# ─────────────────────────────────────────────────────────────
+
+async def chat_with_advisor(
+    message: str,
+    history: list[dict] | None = None,
+) -> dict:
+    """Freie Konversation mit dem AI Advisor.
+
+    Unterstützt beliebige Fragen/Hypothesen mit Portfolio-Kontext.
+    Nutzt Function Calling für Live-Daten und Google Search für Aktualität.
+
+    Args:
+        message: Aktuelle Nachricht des Users
+        history: Bisheriger Chat-Verlauf [{"role": "user"|"assistant", "content": "..."}]
+
+    Returns:
+        dict mit "response" (AI-Antwort), "history" (aktualisiert)
+    """
+    from state import portfolio_data
+
+    if not settings.gemini_configured:
+        return {
+            "response": "⚠️ Gemini API nicht konfiguriert. Bitte GEMINI_API_KEY setzen.",
+            "history": history or [],
+        }
+
+    summary = portfolio_data.get("summary")
+    if not summary or not summary.stocks:
+        return {
+            "response": "⚠️ Keine Portfolio-Daten vorhanden. Bitte zuerst einen Refresh starten.",
+            "history": history or [],
+        }
+
+    if not message or not message.strip():
+        return {
+            "response": "Bitte stelle eine Frage oder beschreibe deine Hypothese.",
+            "history": history or [],
+        }
+
+    # Portfolio-Kontext für System-Prompt aufbauen
+    portfolio_ctx = _build_portfolio_context(summary, "", "buy", None)
+
+    # Score-Info für Tool-Calls (leerer Dummy — wird live berechnet)
+    score_info = {"info": "Nutze get_stock_score Tool für Ticker-spezifische Scores"}
+
+    try:
+        response_text = await _call_gemini_chat(
+            message=message.strip(),
+            history=history or [],
+            portfolio_ctx=portfolio_ctx,
+            score_info=score_info,
+            summary=summary,
+        )
+        # History aktualisieren
+        updated_history = list(history or [])
+        updated_history.append({"role": "user", "content": message.strip()})
+        updated_history.append({"role": "assistant", "content": response_text})
+
+        # History auf max 20 Nachrichten begrenzen (10 Turns)
+        if len(updated_history) > 20:
+            updated_history = updated_history[-20:]
+
+        return {
+            "response": response_text,
+            "history": updated_history,
+        }
+    except Exception as e:
+        logger.error(f"Chat Advisor Fehler: {e}")
+        return {
+            "response": f"❌ Fehler bei der AI-Analyse: {str(e)}",
+            "history": history or [],
+        }
+
+
+async def _call_gemini_chat(
+    message: str,
+    history: list[dict],
+    portfolio_ctx: dict,
+    score_info: dict,
+    summary,
+) -> str:
+    """Gemini-Call für freie Chat-Konversation mit Function Calling."""
+    from services.vertex_ai import get_client, get_cached_content
+    from google.genai.types import Tool, GoogleSearch, FunctionDeclaration, Part, Content
+
+    client = get_client()
+
+    # Portfolio-Zusammenfassung für System-Prompt
+    positions_text = ""
+    for p in portfolio_ctx.get("top_positions", [])[:15]:
+        positions_text += (
+            f"  {p['ticker']} ({p['name']}): "
+            f"Gewicht {p['weight']}%, Score {p.get('score', '?')}, "
+            f"Rating {p.get('rating', '?')}, P&L {p.get('pnl_pct', 0):.1f}%\n"
+        )
+
+    sectors_text = ", ".join(
+        f"{k} {v}%" for k, v in portfolio_ctx.get("sector_distribution", {}).items()
+    )
+
+    system_prompt = (
+        "Du bist ein erfahrener Portfolio-Berater und Finanzanalyst. "
+        "Der User hat ein persönliches Aktienportfolio und möchte mit dir darüber diskutieren.\n\n"
+        f"PORTFOLIO-ÜBERSICHT:\n"
+        f"  Gesamtwert: {portfolio_ctx.get('total_value', 0):,.0f} EUR\n"
+        f"  Positionen: {portfolio_ctx.get('num_positions', 0)}\n"
+        f"  Gesamt P&L: {portfolio_ctx.get('total_pnl_pct', 0):.1f}%\n"
+        f"  Fear & Greed: {portfolio_ctx.get('fear_greed', '?')} ({portfolio_ctx.get('fear_greed_label', '?')})\n"
+        f"  Sektor-Verteilung: {sectors_text}\n\n"
+        f"POSITIONEN:\n{positions_text}\n"
+        "REGELN:\n"
+        "- Antworte auf Deutsch, klar und direkt\n"
+        "- Nutze die verfügbaren Tools um aktuelle Daten abzurufen wenn nötig\n"
+        "- Nutze Google Search für aktuelle Nachrichten und Marktdaten\n"
+        "- Beziehe dich auf das Portfolio wenn relevant\n"
+        "- Sei ehrlich über Unsicherheiten und Risiken\n"
+        "- Formatiere mit Markdown (fett, Listen, Überschriften)\n"
+    )
+
+    # Tool-Definitionen (gleiche wie bei evaluate)
+    tool_declarations = [
+        FunctionDeclaration(**td) for td in _build_tool_declarations()
+    ]
+
+    config = {
+        "tools": [
+            Tool(google_search=GoogleSearch()),
+            Tool(function_declarations=tool_declarations),
+        ],
+        "system_instruction": system_prompt,
+    }
+
+    cached = get_cached_content()
+    if cached:
+        config["cached_content"] = cached
+
+    # Chat-History als Contents aufbauen
+    contents = []
+    for msg in history:
+        role = "user" if msg["role"] == "user" else "model"
+        contents.append(Content(role=role, parts=[Part(text=msg["content"])]))
+
+    # Aktuelle Nachricht hinzufügen
+    contents.append(Content(role="user", parts=[Part(text=message)]))
+
+    # Gemini-Call
+    response = client.models.generate_content(
+        model="gemini-2.5-pro",
+        contents=contents,
+        config=config,
+    )
+
+    # Function Calling Loop (max 3 Runden)
+    all_contents = list(contents)
+    all_contents.append(response.candidates[0].content)
+
+    for round_num in range(3):
+        function_calls = [
+            p for p in response.candidates[0].content.parts
+            if p.function_call
+        ]
+        if not function_calls:
+            break
+
+        logger.info(f"💬 Chat Tool-Runde {round_num + 1}: {len(function_calls)} Calls")
+
+        # Tool-Calls ausführen
+        tool_results = []
+        for fc_part in function_calls:
+            fc = fc_part.function_call
+            tool_name = fc.name
+            tool_args = dict(fc.args) if fc.args else {}
+
+            # Für get_stock_score: Live-Score berechnen
+            if tool_name == "get_stock_score":
+                ticker = tool_args.get("ticker", "")
+                live_score = await _get_or_calculate_score(ticker, summary)
+                result_str = json.dumps(live_score, default=str)
+            else:
+                result_str = _execute_tool_call(
+                    tool_name, tool_args, score_info, portfolio_ctx,
+                )
+
+            tool_results.append(Part.from_function_response(
+                name=tool_name,
+                response={"result": result_str},
+            ))
+
+        all_contents.append(Content(role="user", parts=tool_results))
+
+        response = client.models.generate_content(
+            model="gemini-2.5-pro",
+            contents=all_contents,
+            config=config,
+        )
+        all_contents.append(response.candidates[0].content)
+
+    return response.text.strip() if response.text else "Keine Antwort erhalten."
+

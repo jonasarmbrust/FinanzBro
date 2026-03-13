@@ -283,3 +283,26 @@ async def evaluate_trade_endpoint(data: dict):
         extra_context=extra_context,
     )
     return result
+
+
+@router.post("/api/advisor/chat")
+async def advisor_chat_endpoint(data: dict):
+    """AI Advisor Chat: Freie Konversation mit Portfolio-Kontext.
+
+    Body:
+        message: str — Frage oder Hypothese
+        history: list (optional) — Bisheriger Chat-Verlauf
+    """
+    message = data.get("message", "").strip()
+    if not message:
+        return {"error": "Bitte eine Nachricht eingeben."}
+
+    history = data.get("history", [])
+
+    from services.trade_advisor import chat_with_advisor
+    result = await chat_with_advisor(
+        message=message,
+        history=history,
+    )
+    return result
+

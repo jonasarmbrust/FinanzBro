@@ -233,11 +233,14 @@ async def _yfinance_price_fallback(pos: PortfolioPosition):
     if pos.current_price > 0:
         return
 
-    try:
+    def _fetch_price():
         import yfinance as yf
         yf_ticker = YFINANCE_ALIASES.get(pos.ticker, pos.ticker)
         ticker_obj = yf.Ticker(yf_ticker)
-        info = ticker_obj.info or {}
+        return ticker_obj.info or {}
+
+    try:
+        info = await asyncio.wait_for(asyncio.to_thread(_fetch_price), timeout=5.0)
         yf_price = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("previousClose")
         if yf_price and float(yf_price) > 0:
             pos.current_price = float(yf_price)
@@ -246,6 +249,8 @@ async def _yfinance_price_fallback(pos: PortfolioPosition):
                 pos.name = info.get("shortName", pos.name)
             if not pos.sector or pos.sector == "Unknown":
                 pos.sector = info.get("sector", pos.sector)
+    except asyncio.TimeoutError:
+        logger.debug(f"yFinance Preis-Fallback Timeout für {pos.ticker}")
     except Exception as e:
         logger.debug(f"yFinance Preis-Fallback fehlgeschlagen für {pos.ticker}: {e}")
 
@@ -258,14 +263,6 @@ async def _yfinance_fundamentals_fallback(pos, fund, analyst):
     ])
     esg_fallback = None
     if fund_has_data:
-        # Auch bei vorhandenen Fundamentals ESG holen (wenn nötig)
-        try:
-            from fetchers.yfinance_data import fetch_yfinance_fundamentals
-            yf_fund = await fetch_yfinance_fundamentals(pos.ticker)
-            if yf_fund:
-                esg_fallback = yf_fund.get("esg_risk_score")
-        except Exception:
-            pass
         return fund, analyst, esg_fallback
 
     try:
