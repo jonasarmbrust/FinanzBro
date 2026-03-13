@@ -147,13 +147,13 @@ async def update_parqet() -> dict:
 
             logger.info(
                 f"✅ Parqet-Update abgeschlossen: {len(stocks)} Positionen, "
-                f"Gesamt: {total_value:,.2f} EUR (Cash: {cash_eur:,.2f} EUR)"
+                f"Gesamt: {t['total_value']:,.2f} EUR (Cash: {cash_eur:,.2f} EUR)"
             )
 
             return {
                 "status": "done",
                 "positions": len(stocks),
-                "total_eur": round(total_value, 2),
+                "total_eur": round(t["total_value"], 2),
                 "cash_eur": round(cash_eur, 2),
                 "eur_usd_rate": eur_usd_rate,
             }
