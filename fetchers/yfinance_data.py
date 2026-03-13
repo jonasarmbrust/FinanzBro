@@ -313,8 +313,16 @@ async def quick_price_update(tickers: list[str]) -> tuple[dict[str, float], dict
                                 if last_close > 0 and not math.isnan(last_close):
                                     prices[ticker] = round(last_close, 2)
                                 # Vortagsschluss für Daily-Change-Berechnung
-                                if len(col) >= 2:
-                                    prev = float(col.iloc[-2])
+                                if len(col) >= 1:
+                                    from datetime import datetime as dt
+                                    last_date = col.index[-1].date()
+                                    today = dt.now().date()
+                                    
+                                    if last_date >= today and len(col) >= 2:
+                                        prev = float(col.iloc[-2])
+                                    else:
+                                        prev = float(col.iloc[-1])
+                                        
                                     if prev > 0 and not math.isnan(prev):
                                         prev_closes[ticker] = prev
                         except (KeyError, IndexError, TypeError, ValueError) as e:
