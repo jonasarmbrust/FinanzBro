@@ -267,17 +267,24 @@ async def get_earnings_calendar():
     if not summary or not summary.stocks:
         return JSONResponse({"error": "Keine Daten"}, status_code=503)
 
-    tickers = [
-        s.position.ticker for s in summary.stocks
-        if s.position.ticker != "CASH"
-    ]
+    earnings = []
+    for stock in summary.stocks:
+        if stock.position.ticker == "CASH":
+            continue
+        if stock.yfinance and stock.yfinance.next_earnings_date:
+            entry = {
+                "ticker": stock.position.ticker,
+                "name": stock.position.name,
+                "date": stock.yfinance.next_earnings_date,
+                "beat_rate": stock.yfinance.earnings_beat_rate,
+                "surprise_avg": stock.yfinance.earnings_surprise_avg,
+                "eps_estimated": None, # Nicht von yfinance verfuegbar, aber UI erwartet evtl das Feld
+            }
+            earnings.append(entry)
 
-    try:
-        from fetchers.fmp import fetch_earnings_calendar
-        return await fetch_earnings_calendar(tickers)
-    except Exception as e:
-        logger.error(f"Earnings-Kalender fehlgeschlagen: {e}")
-        return []
+    # Sortieren nach Datum (nächster zuerst)
+    earnings.sort(key=lambda x: x["date"])
+    return earnings
 
 
 # ─────────────────────────────────────────────────────────────

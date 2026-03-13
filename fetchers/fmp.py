@@ -354,7 +354,8 @@ async def fetch_fundamentals(ticker: str) -> FundamentalData:
         fd.gross_margin = ratios.get("grossProfitMarginTTM")
         fd.operating_margin = ratios.get("operatingProfitMarginTTM")
         fd.net_margin = ratios.get("netProfitMarginTTM")
-        fd.dividend_yield = ratios.get("dividendYielTTM")
+        dy = ratios.get("dividendYielTTM")
+        fd.dividend_yield = (dy * 100) if dy is not None else None
 
     # Wachstum: Echte Growth Rates aus income-statement-growth (nicht per-share absolut)
     growth = await get_financial_growth(ticker)
@@ -497,7 +498,8 @@ async def fetch_all_fmp_data(ticker: str) -> dict:
         fd.gross_margin = ratios.get("grossProfitMarginTTM")
         fd.operating_margin = ratios.get("operatingProfitMarginTTM")
         fd.net_margin = ratios.get("netProfitMarginTTM")
-        fd.dividend_yield = ratios.get("dividendYielTTM")
+        dy = ratios.get("dividendYielTTM")
+        fd.dividend_yield = (dy * 100) if dy is not None else None
     if metrics:
         # v3: Valuation & Growth Kennzahlen (bereits im key-metrics-ttm enthalten)
         fd.ev_to_ebitda = metrics.get("evToEBITDATTM")
@@ -590,7 +592,8 @@ async def fetch_light_fmp_data(ticker: str) -> dict:
         fd.gross_margin = ratios.get("grossProfitMarginTTM")
         fd.operating_margin = ratios.get("operatingProfitMarginTTM")
         fd.net_margin = ratios.get("netProfitMarginTTM")
-        fd.dividend_yield = ratios.get("dividendYielTTM")
+        dy = ratios.get("dividendYielTTM")
+        fd.dividend_yield = (dy * 100) if dy is not None else None
 
     ad = AnalystData()
     if pt:

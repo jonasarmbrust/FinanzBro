@@ -290,8 +290,6 @@ def calculate_dividend_summary(stocks: list) -> dict:
             annual_div_per_share = div.annual_dividend
         elif fd and fd.dividend_yield and fd.dividend_yield > 0:
             yield_pct = fd.dividend_yield
-            if yield_pct < 1:  # Dezimalformat
-                yield_pct *= 100
             if pos.current_price > 0:
                 annual_div_per_share = pos.current_price * yield_pct / 100
 
