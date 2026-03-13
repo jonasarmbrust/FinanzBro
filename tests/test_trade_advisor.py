@@ -113,10 +113,10 @@ class TestBuildPortfolioContext:
 # ─────────────────────────────────────────────────────────────
 
 class TestToolDeclarations:
-    def test_has_three_tools(self):
-        """Feature 2: Should define 3 callable tools."""
+    def test_has_four_tools(self):
+        """Feature 2: Should define 4 callable tools (including fetch_url_content)."""
         tools = _build_tool_declarations()
-        assert len(tools) == 3
+        assert len(tools) == 4
 
     def test_tool_names(self):
         tools = _build_tool_declarations()
@@ -124,6 +124,7 @@ class TestToolDeclarations:
         assert "get_stock_score" in names
         assert "get_portfolio_overview" in names
         assert "get_sector_impact" in names
+        assert "fetch_url_content" in names
 
     def test_tools_have_parameters(self):
         tools = _build_tool_declarations()
@@ -134,14 +135,16 @@ class TestToolDeclarations:
 
 
 class TestToolExecution:
-    def test_get_stock_score(self):
+    @pytest.mark.asyncio
+    async def test_get_stock_score(self):
         score_info = {"total_score": 75, "rating": "buy"}
-        result = _execute_tool_call("get_stock_score", {"ticker": "AAPL"}, score_info, {})
+        result = await _execute_tool_call("get_stock_score", {"ticker": "AAPL"}, score_info, {})
         parsed = json.loads(result)
         assert parsed["total_score"] == 75
         assert parsed["rating"] == "buy"
 
-    def test_get_portfolio_overview(self):
+    @pytest.mark.asyncio
+    async def test_get_portfolio_overview(self):
         portfolio_ctx = {
             "total_value": 10000,
             "num_positions": 5,
@@ -151,13 +154,14 @@ class TestToolExecution:
             "sector_distribution": {"Tech": 40, "Health": 30},
             "top_positions": [{"ticker": "AAPL"}, {"ticker": "MSFT"}],
         }
-        result = _execute_tool_call("get_portfolio_overview", {}, {}, portfolio_ctx)
+        result = await _execute_tool_call("get_portfolio_overview", {}, {}, portfolio_ctx)
         parsed = json.loads(result)
         assert parsed["total_value"] == 10000
         assert parsed["num_positions"] == 5
         assert "Tech" in parsed["sector_distribution"]
 
-    def test_get_sector_impact(self):
+    @pytest.mark.asyncio
+    async def test_get_sector_impact(self):
         portfolio_ctx = {
             "impact": {
                 "sector": "Technology",
@@ -165,18 +169,40 @@ class TestToolExecution:
                 "sector_weight_after": 45.0,
             },
         }
-        result = _execute_tool_call("get_sector_impact", {}, {}, portfolio_ctx)
+        result = await _execute_tool_call("get_sector_impact", {}, {}, portfolio_ctx)
         parsed = json.loads(result)
         assert parsed["sector"] == "Technology"
         assert parsed["sector_weight_after"] == 45.0
 
-    def test_get_sector_impact_no_data(self):
-        result = _execute_tool_call("get_sector_impact", {}, {}, {"impact": {}})
+    @pytest.mark.asyncio
+    async def test_get_sector_impact_no_data(self):
+        result = await _execute_tool_call("get_sector_impact", {}, {}, {"impact": {}})
         parsed = json.loads(result)
         assert "info" in parsed
 
-    def test_unknown_tool(self):
-        result = _execute_tool_call("unknown_tool", {}, {}, {})
+    @pytest.mark.asyncio
+    async def test_unknown_tool(self):
+        result = await _execute_tool_call("unknown_tool", {}, {}, {})
+        parsed = json.loads(result)
+        assert "error" in parsed
+
+    @pytest.mark.asyncio
+    async def test_fetch_url_content_tool(self):
+        """fetch_url_content Tool ruft url_fetcher auf."""
+        with patch("services.url_fetcher.fetch_url_text") as mock_fetch:
+            mock_fetch.return_value = "Artikel über NVIDIA..."
+            result = await _execute_tool_call(
+                "fetch_url_content",
+                {"url": "https://example.com/nvidia-article"},
+                {}, {},
+            )
+        parsed = json.loads(result)
+        assert parsed["url"] == "https://example.com/nvidia-article"
+        assert "NVIDIA" in parsed["content"]
+
+    @pytest.mark.asyncio
+    async def test_fetch_url_content_no_url(self):
+        result = await _execute_tool_call("fetch_url_content", {}, {}, {})
         parsed = json.loads(result)
         assert "error" in parsed
 

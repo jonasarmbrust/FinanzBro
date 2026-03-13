@@ -278,10 +278,28 @@ def _build_tool_declarations() -> list[dict]:
                 "required": ["ticker", "action", "amount_eur"],
             },
         },
+        {
+            "name": "fetch_url_content",
+            "description": (
+                "Ruft den Inhalt einer externen URL ab und gibt den Text zurück. "
+                "Nutze dies um Artikel, Analysen, Berichte oder andere Webseiten zu lesen, "
+                "die der User verlinkt oder die für die Analyse relevant sind."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "Die vollständige URL (z.B. https://finance.yahoo.com/...)",
+                    },
+                },
+                "required": ["url"],
+            },
+        },
     ]
 
 
-def _execute_tool_call(
+async def _execute_tool_call(
     tool_name: str,
     tool_args: dict,
     score_info: dict,
@@ -309,6 +327,14 @@ def _execute_tool_call(
         if not impact:
             return json.dumps({"info": "Keine Impact-Daten verfügbar (Betrag oder Sektor fehlt)"})
         return json.dumps(impact, default=str)
+
+    elif tool_name == "fetch_url_content":
+        url = tool_args.get("url", "")
+        if not url:
+            return json.dumps({"error": "Keine URL angegeben"})
+        from services.url_fetcher import fetch_url_text
+        text = await fetch_url_text(url, max_chars=6000)
+        return json.dumps({"url": url, "content": text}, default=str)
 
     return json.dumps({"error": f"Unbekanntes Tool: {tool_name}"})
 
@@ -398,7 +424,8 @@ async def _call_gemini_with_tools(
     system_prompt = (
         "Du bist ein erfahrener Portfolio-Advisor. Der User möchte einen Trade evaluieren. "
         "Du hast Zugriff auf Tools um Portfolio-Daten und Aktien-Scores abzurufen. "
-        "Nutze die Tools um deine Analyse zu untermauern. "
+        "Du kannst auch externe URLs lesen mit dem fetch_url_content Tool — "
+        "nutze es wenn der User Links teilt oder wenn du Artikel lesen möchtest. "
         "Nutze auch Google Search für aktuelle Marktdaten und Nachrichten. "
         "Antworte auf Deutsch."
     )
@@ -471,7 +498,7 @@ async def _call_gemini_with_tools(
             tool_args = dict(fc.args) if fc.args else {}
 
             logger.debug(f"  Tool: {tool_name}({tool_args})")
-            result_str = _execute_tool_call(
+            result_str = await _execute_tool_call(
                 tool_name, tool_args, score_info, portfolio_ctx,
             )
 
@@ -662,6 +689,7 @@ async def _call_gemini_chat(
         "- Antworte auf Deutsch, klar und direkt\n"
         "- Nutze die verfügbaren Tools um aktuelle Daten abzurufen wenn nötig\n"
         "- Nutze Google Search für aktuelle Nachrichten und Marktdaten\n"
+        "- Wenn der User URLs teilt, nutze das fetch_url_content Tool um den Inhalt zu lesen\n"
         "- Beziehe dich auf das Portfolio wenn relevant\n"
         "- Sei ehrlich über Unsicherheiten und Risiken\n"
         "- Formatiere mit Markdown (fett, Listen, Überschriften)\n"
@@ -674,6 +702,7 @@ async def _call_gemini_chat(
 
     config = {
         "tools": [
+            Tool(google_search=GoogleSearch()),
             Tool(function_declarations=tool_declarations),
         ],
         "system_instruction": system_prompt,
@@ -726,7 +755,7 @@ async def _call_gemini_chat(
                 live_score = await _get_or_calculate_score(ticker, summary)
                 result_str = json.dumps(live_score, default=str)
             else:
-                result_str = _execute_tool_call(
+                result_str = await _execute_tool_call(
                     tool_name, tool_args, score_info, portfolio_ctx,
                 )
 

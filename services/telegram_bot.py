@@ -583,6 +583,21 @@ async def _cmd_chat(chat_id: str, question: str):
         client = get_client()
         portfolio_context = _get_portfolio_context()
 
+        # URLs aus der Nachricht extrahieren und Inhalte laden
+        url_context = ""
+        from services.url_fetcher import extract_urls, fetch_multiple_urls
+        urls = extract_urls(question)
+        if urls:
+            await send_message(
+                f"🌐 Lade {len(urls)} verlinkte Seite(n)...",
+                chat_id=chat_id,
+            )
+            url_contents = await fetch_multiple_urls(urls, max_chars_per_url=3000)
+            url_parts = []
+            for url, content in url_contents.items():
+                url_parts.append(f"--- Inhalt von {url} ---\n{content}\n---")
+            url_context = "\n\n".join(url_parts)
+
         system_prompt = (
             "Du bist FinanzBro, ein intelligenter Portfolio-Assistent. "
             "Antworte kurz und prägnant auf Deutsch (max 800 Zeichen). "
@@ -592,6 +607,12 @@ async def _cmd_chat(chat_id: str, question: str):
             system_prompt += (
                 "Hier ist der aktuelle Portfolio-Status:\n"
                 f"{portfolio_context}\n\n"
+            )
+        if url_context:
+            system_prompt += (
+                "Der User hat folgende externe Quellen geteilt:\n"
+                f"{url_context}\n\n"
+                "Beziehe diese Informationen in deine Antwort ein.\n\n"
             )
 
         # Versuche mit Search Grounding für aktuelle Daten
@@ -610,7 +631,7 @@ async def _cmd_chat(chat_id: str, question: str):
             result = result[:3950] + "\n\n_(gekürzt)_"
 
         await send_message(f"💬 {result}", chat_id=chat_id)
-        logger.info(f"✅ Chat beantwortet ({len(result)} Zeichen)")
+        logger.info(f"✅ Chat beantwortet ({len(result)} Zeichen, {len(urls)} URLs)")
 
     except Exception as e:
         logger.error(f"Chat fehlgeschlagen: {e}")
