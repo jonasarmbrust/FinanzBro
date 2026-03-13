@@ -14,7 +14,7 @@ Jeder Faktor wird auf 0-100 normalisiert, gewichtet zusammengeführt.
 | 3 | **Valuation** | 14% | FMP | P/E, EV/EBITDA, PEG, FCF Yield — **sektorbasiert** |
 | 4 | **Technical** | 13% | yFinance | RSI-14, SMA Cross, Momentum 30d, Price vs SMA50 |
 | 5 | **Growth** | 11% | FMP + yFinance | Revenue Growth YoY, Earnings Growth YoY, ROIC |
-| 6 | **Quantitative** | 10% | FMP | Altman Z-Score, Piotroski Score |
+| 6 | **Quantitative** | 10% | yFinance | Altman Z-Score (selbst berechnet), Piotroski F-Score (selbst berechnet) |
 | 7 | **Sentiment** | 7% | CNN | Fear & Greed Index (Markt-Level) |
 | 8 | **Momentum** | 6% | yFinance | 90d + 180d Kurs-Momentum |
 | 9 | **Insider** | 3% | yFinance | Insider Buy/Sell Ratio |
@@ -82,3 +82,16 @@ Basiert auf der Anzahl verfügbarer Faktoren:
 - **Datenabdeckung:** 17/19 Positionen mit vollständigen Daten
   (nur ISINs ohne yfinance-Mapping fehlen).
 
+## v5.2 Änderungen (Quantitative Scores + Bugfixes)
+
+- **Altman Z-Score selbst berechnet:** Nutzt `balance_sheet` und `income_stmt`
+  von yfinance. Formel: `1.2×(WC/TA) + 1.4×(RE/TA) + 3.3×(EBIT/TA) + 0.6×(MC/TL) + 1.0×(Rev/TA)`.
+  Vorher: FMP Free Tier lieferte für 0/19 Ticker Daten.
+- **Piotroski F-Score selbst berechnet:** 9 binäre Kriterien aus 2-Jahres-Vergleich
+  (Profitabilität, Verschuldung, Effizienz). Nutzt `balance_sheet`, `income_stmt`, `cashflow`.
+- **Dividend Yield Fix:** yfinance `dividendYield` ist bereits Prozent (z.B. 0.65 = 0.65%).
+  Alte Logik multiplizierte Werte < 1 mit 100 → ASML zeigte 65% statt 0.65%.
+- **Earnings-Kalender:** `lxml` als Dependency hinzugefügt — `ticker.earnings_dates`
+  benötigt `pd.read_html(lxml)`. Vorher: silent fail → 0 Earnings-Termine.
+- **Performance:** `_yfinance_price_fallback()` blockierte den Event-Loop (synchroner
+  `ticker.info` Aufruf). Jetzt via `asyncio.to_thread()` — Server bleibt responsiv.

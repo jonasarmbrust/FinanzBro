@@ -1,6 +1,6 @@
 # 📊 FinanzBro – Intelligentes Portfolio Dashboard
 
-Echtzeit-Portfolio-Dashboard mit Multi-Faktor-Scoring, Conviction-basiertem Rebalancing, AI Trade Advisor (Function Calling) und Gemini Structured Output.  
+Echtzeit-Portfolio-Dashboard mit Multi-Faktor-Scoring, Conviction-basiertem Rebalancing, AI Trade Advisor (Function Calling + Chat), Gemini Structured Output und yFinance-basiertem Stock Screener.  
 Läuft lokal und auf **Google Cloud Run**.
 
 ## Architektur
@@ -12,7 +12,7 @@ FastAPI Backend (lokal / Cloud Run)
     ├── routes/          → API-Endpunkte
     ├── engine/          → Scoring, Analyse, Rebalancing, Attribution
     ├── services/        → Refresh, AI Agent, Telegram Bot, Vertex AI
-    ├── fetchers/        → Datenquellen (Parqet, FMP, yfinance, Finnhub)
+    ├── fetchers/        → Datenquellen (Parqet, FMP, yfinance)
     ├── database.py      → SQLite Persistenz (WAL, Score-History, Snapshots)
     └── cache/           → In-Memory + Disk Caches
 ```
@@ -22,14 +22,14 @@ FastAPI Backend (lokal / Cloud Run)
 | Quelle | Modul | Auth | Liefert |
 |---|---|---|---|
 | **Parqet** | `fetchers/parqet.py` | OAuth2 / JWT | Portfolio-Positionen, Kaufkurse, Sektoren |
-| **FMP** | `fetchers/fmp.py` | `FMP_API_KEY` | Fundamentals, Analysten, Dividenden, News, Earnings |
-| **yfinance** | `fetchers/yfinance_data.py` | – | Kurse, Recommendations, Insider, ESG, Earnings, Fundamentals-Fallback |
-| **Finnhub** | `fetchers/finnhub_ws.py` | `FINNHUB_API_KEY` | Echtzeit-Kurse (WebSocket, nur US) |
-| **yFinance WS** | `fetchers/yfinance_ws.py` | – | Echtzeit-Kurse (WebSocket, International/EU) |
+| **FMP** | `fetchers/fmp.py` | `FMP_API_KEY` | Fundamentals, Analysten, Dividenden, News (6h-Cache-Schutz) |
+| **yfinance** | `fetchers/yfinance_data.py` | – | Kurse, Recommendations, Insider, ESG, Earnings-Surprise, Fundamentals-Fallback, Altman Z, Piotroski |
+| **yFinance WS** | `fetchers/yfinance_ws.py` | – | Echtzeit-Kurse (WebSocket, International) |
+| **yFinance Screener** | `fetchers/yfinance_screener.py` | – | Stock Discovery (EquityQuery, ersetzt FMP Tech-Picks) |
 | **CNN** | `fetchers/fear_greed.py` | – | Fear & Greed Index |
 | **Vertex AI** | `services/vertex_ai.py` | GCP Service Account | Gemini Pro/Flash, Search Grounding |
 
-> FMP Free Tier: 250 Requests/Tag. Alle anderen Quellen sind kostenlos.
+> FMP Free Tier: 250 Requests/Tag mit 6h-Cache-Schutz. Alle anderen Quellen kostenlos.
 
 ## Scoring Engine (`engine/scorer.py`)
 
@@ -41,8 +41,8 @@ FastAPI Backend (lokal / Cloud Run)
 | Analyst Consensus + Kursziele | 15% | FMP (verifiziert via Track Record) |
 | Valuation (P/E, EV/EBITDA, PEG) | 14% | FMP |
 | Technical (RSI, SMA, Momentum) | 13% | yfinance |
-| Growth (Revenue, Earnings YoY) | 11% | FMP + yfinance |
-| Quantitative (Altman Z, Piotroski) | 10% | FMP |
+| Growth (Revenue, Earnings YoY, Beat Rate) | 11% | FMP + yfinance (Earnings Surprise) |
+| Quantitative (Altman Z, Piotroski) | 10% | yfinance (selbst berechnet) |
 | Market Sentiment (Fear&Greed) | 7% | CNN |
 | Momentum (90d, 180d) | 6% | yfinance |
 | Insider Trading | 3% | yfinance (v1.2.0: `Text`-Spalte) |
@@ -55,6 +55,7 @@ FastAPI Backend (lokal / Cloud Run)
 | Feature | Modell | Beschreibung |
 |---------|--------|--------------|
 | **AI Trade Advisor** | Pro + Grounding + **Function Calling** | 🧠 Agentischer Advisor — Gemini ruft selbst Tools auf |
+| **AI Chat** | Pro + **Function Calling** | 💬 Freie Portfolio-Diskussion im Browser |
 | Score-Kommentare | Flash + **Structured Output** | KI-Kommentar pro Aktie bei jedem Refresh |
 | Earnings-Analyse | Pro + Grounding + **Structured Output** | `/earnings` — Echtzeit-Earnings via Search |
 | Portfolio-Chat | Pro + Grounding | Freitext-Fragen in Telegram |
@@ -103,8 +104,9 @@ Alle JSON-AI-Services nutzen `response_schema` — Gemini garantiert valides JSO
 | GET | `/api/stock/{ticker}` | Einzelaktie Details |
 | GET | `/api/portfolio/history` | Portfolio-Wert-Entwicklung |
 | GET | `/api/rebalancing` | Rebalancing-Empfehlungen |
-| GET | `/api/tech-picks` | Tech-Aktien Screening |
+| GET | `/api/tech-picks` | Tech-Aktien Screening (yFinance Screener) |
 | GET | `/api/fear-greed` | Fear & Greed Index |
+| GET | `/api/earnings-calendar` | Earnings-Kalender (Portfolio-Positionen) |
 | GET | `/api/status` | System-Status |
 
 ### Refresh (`routes/refresh.py`)
@@ -115,6 +117,12 @@ Alle JSON-AI-Services nutzen `response_schema` — Gemini garantiert valides JSO
 | POST | `/api/refresh/parqet` | Nur Parqet-Positionen |
 | POST | `/api/refresh/scores` | Nur Scores neuberechnen |
 | GET | `/api/refresh/status` | Refresh-Fortschritt |
+
+### AI Advisor (`routes/analysis.py`)
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| POST | `/api/advisor/evaluate` | Trade-Bewertung (Kauf/Verkauf/Aufstocken) |
+| POST | `/api/advisor/chat` | Freie Portfolio-Diskussion (Multi-Turn) |
 
 ### Analytics (`routes/analytics.py`)
 | Methode | Pfad | Beschreibung |
@@ -157,7 +165,6 @@ FMP_API_KEY=...
 PARQET_PORTFOLIO_ID=...
 
 # Optional (Erweiterte Features)
-FINNHUB_API_KEY=...
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
 GEMINI_API_KEY=...
@@ -172,7 +179,7 @@ GCP_PROJECT_ID=...
 | Job | Zeit | Funktion |
 |-----|------|----------|
 | Full Analyse | 16:15 | Refresh + Scoring + AI Report |
-| Intraday Kurse | alle 15min (Mo-Fr) | yFinance Batch |
+| Intraday Kurse | alle 15min (Mo-Fr) | yFinance Batch (nur wenn WS < 80% Coverage) |
 | Weekly Digest | Freitag 22:30 | Wöchentliche KI-Zusammenfassung |
 
 ## Projektstruktur
@@ -199,9 +206,9 @@ FinanzBro/
 │   ├── parqet.py        # Parqet Connect API (OAuth2 PKCE)
 │   ├── parqet_auth.py   # Token-Management
 │   ├── fmp.py           # Financial Modeling Prep
-│   ├── yfinance_data.py # Yahoo Finance (Batch)
+│   ├── yfinance_data.py # Yahoo Finance (Batch, Fundamentals, Earnings Surprise)
 │   ├── yfinance_ws.py   # yFinance WebSocket (Echtzeit International)
-│   ├── finnhub_ws.py    # Finnhub WebSocket (Echtzeit US)
+│   ├── yfinance_screener.py # Stock Discovery (EquityQuery)
 │   ├── technical.py     # RSI, SMA, MACD
 │   ├── fear_greed.py    # CNN Fear & Greed
 │   ├── currency.py      # Wechselkurse
@@ -213,7 +220,7 @@ FinanzBro/
 │   ├── telegram.py      # Telegram API
 │   ├── telegram_bot.py  # Telegram Bot (Command-Handler)
 │   ├── vertex_ai.py     # Gemini Client + Context Caching
-│   ├── trade_advisor.py # AI Trade Advisor (Function Calling + Structured Output)
+│   ├── trade_advisor.py # AI Trade Advisor + Chat (Function Calling + Structured Output)
 │   ├── earnings_ai.py   # Earnings-Analyse (Structured Output)
 │   ├── score_commentary.py  # AI Score-Kommentare (Structured Output)
 │   ├── weekly_digest.py # Wöchentlicher Digest (Flash)
