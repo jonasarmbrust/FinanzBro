@@ -27,6 +27,14 @@ def _is_finnhub_connected() -> bool:
     except Exception:
         return False
 
+def _is_yfinance_connected() -> bool:
+    """Prüft ob yFinance WebSocket verbunden ist."""
+    try:
+        from fetchers.yfinance_ws import get_yf_streamer
+        return get_yf_streamer().is_connected
+    except Exception:
+        return False
+
 
 @router.get("/api/prices/stream")
 async def stream_prices(request: Request):
@@ -51,7 +59,15 @@ async def stream_prices(request: Request):
             if summary and summary.eur_usd_rate and summary.eur_usd_rate > 0 and summary.eur_usd_rate != 1.0:
                 eur_usd = summary.eur_usd_rate
 
-            # 1. Finnhub prices (raw USD for US tickers) → convert to EUR
+            # Converter für yfinance (nutzt gecachte Wechselkurse)
+            converter = None
+            try:
+                from services.currency_converter import CurrencyConverter
+                converter = await CurrencyConverter.create(eur_usd_override=eur_usd)
+            except Exception:
+                pass
+
+            # 1a. Finnhub prices (raw USD for US tickers) → convert to EUR
             try:
                 from fetchers.finnhub_ws import get_streamer
                 streamer = get_streamer()
@@ -61,6 +77,23 @@ async def stream_prices(request: Request):
                         if usd_price and usd_price > 0:
                             # Finnhub only streams US tickers → always USD → EUR
                             current_prices[ticker] = round(usd_price / eur_usd, 2)
+            except Exception:
+                pass
+
+            # 1b. yFinance prices (International + US) → convert to EUR
+            try:
+                from fetchers.yfinance_ws import get_yf_streamer
+                yf_streamer = get_yf_streamer()
+                if yf_streamer.is_connected and converter:
+                    raw_yf = yf_streamer.get_all_prices()
+                    for ticker, local_price in raw_yf.items():
+                        # yfinance liefert in lokaler Währung (EUR/DKK/GBP/USD)
+                        if local_price and local_price > 0:
+                            eur_price = converter.to_eur(local_price, ticker)
+                            # Überschreiben nur, wenn noch kein Preis da (Finnhub war schneller) 
+                            # oder bei Nicht-USD Tickern (die Finnhub eh nicht hat)
+                            if ticker not in current_prices:
+                                current_prices[ticker] = eur_price
             except Exception:
                 pass
 
@@ -84,6 +117,7 @@ async def stream_prices(request: Request):
                     "prices": diffs,
                     "timestamp": datetime.now().isoformat(),
                     "finnhub_connected": _is_finnhub_connected(),
+                    "yfinance_connected": _is_yfinance_connected(),
                 })
                 yield f"data: {event_data}\n\n"
             else:

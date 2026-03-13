@@ -93,7 +93,7 @@ async def _do_refresh():
         if existing_summary and existing_summary.stocks:
             # Positionen aus dem letzten Parqet-Update wiederverwenden (spart API-Calls)
             positions = [s.position for s in existing_summary.stocks]
-            logger.info(f"📊 Verwende {len(positions)} bestehende Positionen (bereits geladen)")
+            logger.info(f"Verwende {len(positions)} bestehende Positionen (bereits geladen)")
         else:
             positions = await fetch_portfolio()
 
@@ -380,7 +380,7 @@ async def _do_refresh():
 
 
 async def _quick_price_refresh():
-    """Schneller Kurs-Update: Finnhub (Echtzeit) + yfinance (Fallback)."""
+    """Schneller Kurs-Update: Finnhub (Echtzeit) + yfinance (Fallback + Daily Changes)."""
     summary = portfolio_data.get("summary")
     if not summary or not summary.stocks:
         return
@@ -392,6 +392,7 @@ async def _quick_price_refresh():
     try:
         tickers = [s.position.ticker for s in summary.stocks]
         prices = {}
+        daily_changes = {}
 
         # 1. Finnhub Echtzeit-Preise (US-Ticker)
         finnhub_count = 0
@@ -409,6 +410,23 @@ async def _quick_price_refresh():
 
         finnhub_count = len(prices)  # Alle bisherigen sind von Finnhub
 
+        # 1.5. yfinance WebSocket (Nicht-US-Ticker + Finnhub-Lücken)
+        yf_ws_count = 0
+        try:
+            from fetchers.yfinance_ws import get_yf_streamer
+            yf_streamer = get_yf_streamer()
+            if yf_streamer.is_connected:
+                yf_ws_prices = yf_streamer.get_all_prices()
+                for t in tickers:
+                    if t not in prices and t != "CASH":
+                        yf_alias = YFINANCE_ALIASES.get(t, t)
+                        p = yf_ws_prices.get(yf_alias) or yf_ws_prices.get(t)
+                        if p and p > 0:
+                            prices[t] = p
+                            yf_ws_count += 1
+        except Exception as e:
+            logger.debug(f"yfinance WS-Preise nicht verfügbar: {e}")
+
         # 2. yfinance Fallback für restliche Ticker (über Aliases)
         remaining = [t for t in tickers if t not in prices and t != "CASH"]
         if remaining:
@@ -416,16 +434,19 @@ async def _quick_price_refresh():
             # den richtigen Börsenplatz abfragt
             ticker_to_yf = {t: YFINANCE_ALIASES.get(t, t) for t in remaining}
             yf_tickers = list(set(ticker_to_yf.values()))
-            yf_prices, _ = await quick_price_update(yf_tickers)
+            yf_prices, yf_daily = await quick_price_update(yf_tickers)
             # Map zurück auf Original-Ticker
             for orig, yf_t in ticker_to_yf.items():
                 if yf_t in yf_prices:
                     prices[orig] = yf_prices[yf_t]
+                if yf_t in yf_daily:
+                    daily_changes[orig] = yf_daily[yf_t]
 
         if not prices:
             return
 
         updated = 0
+        daily_updated = 0
         # Zentrale Währungskonvertierung
         converter = await CurrencyConverter.create(
             eur_usd_override=summary.eur_usd_rate if summary.eur_usd_rate > 0 else None
@@ -448,6 +469,11 @@ async def _quick_price_refresh():
                 stock.position.price_currency = "EUR"
                 updated += 1
 
+            # Daily Changes setzen (aus yfinance)
+            if ticker in daily_changes:
+                stock.position.daily_change_pct = daily_changes[ticker]
+                daily_updated += 1
+
             total_value += stock.position.current_value
             total_cost += stock.position.total_cost
 
@@ -457,12 +483,24 @@ async def _quick_price_refresh():
         total_pnl = total_value - total_cost
         summary.total_pnl = round(total_pnl, 2)
         summary.total_pnl_percent = round((total_pnl / total_cost * 100) if total_cost > 0 else 0, 1)
+
+        # Daily total change aktualisieren
+        daily_total_eur = 0.0
+        for s in summary.stocks:
+            pct = s.position.daily_change_pct
+            if pct is not None and s.position.ticker != "CASH":
+                daily_total_eur += s.position.current_value * pct / (100 + pct)
+        daily_total_pct = (daily_total_eur / (total_value - daily_total_eur) * 100) if (total_value - daily_total_eur) > 0 else 0
+        summary.daily_total_change = round(daily_total_eur, 2)
+        summary.daily_total_change_pct = round(daily_total_pct, 2)
         summary.last_updated = datetime.now(tz=TZ_BERLIN)
 
-        yf_count = updated - finnhub_count
+        yf_batch_count = updated - finnhub_count - yf_ws_count
         logger.info(
             f"⚡ Quick-Update: {updated}/{len(tickers)} Kurse aktualisiert "
-            f"(Finnhub: {finnhub_count}, yfinance: {yf_count}), "
+            f"(Finnhub: {finnhub_count}, yfinance-WS: {yf_ws_count}, "
+            f"yfinance-Batch: {yf_batch_count}), "
+            f"{daily_updated} Daily Changes, "
             f"Wert: €{total_value:,.2f}"
         )
 

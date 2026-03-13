@@ -167,7 +167,7 @@ async def quick_price_update(tickers: list[str]) -> tuple[dict[str, float], dict
 
     Nutzt zwei yf.download() Calls:
     1. period="5d", interval="1d" → Vortagsschluss (für daily change)
-    2. period="1d", interval="5m", prepost=True → aktuellster Kurs (Pre-Market/Live)
+    2. period="5d", interval="15m", prepost=True → aktuellster Kurs (Pre-Market/Live)
 
     Returns:
         Tuple of (prices, daily_changes):
@@ -177,6 +177,36 @@ async def quick_price_update(tickers: list[str]) -> tuple[dict[str, float], dict
     valid_tickers = [t for t in tickers if _is_valid_ticker(t)]
     if not valid_tickers:
         return {}, {}
+
+    def _get_close_series(df, ticker):
+        """Extract Close series for a ticker from yf.download() DataFrame.
+
+        yfinance >= 1.2.0 always returns MultiIndex columns (Price, Ticker),
+        even for single-ticker downloads. This helper handles both formats.
+        """
+        import math
+        try:
+            if df is None or df.empty:
+                return None
+            # yfinance 1.2.0+: MultiIndex (Price, Ticker)
+            if hasattr(df.columns, 'nlevels') and df.columns.nlevels > 1:
+                if ("Close", ticker) in df.columns:
+                    return df[("Close", ticker)].dropna()
+                # Fallback: try df["Close"][ticker]
+                try:
+                    return df["Close"][ticker].dropna()
+                except (KeyError, TypeError):
+                    pass
+            # Legacy yfinance (<1.0): flat columns
+            if "Close" in df.columns:
+                col = df["Close"].dropna()
+                # If it's a DataFrame (single ticker MultiIndex), squeeze to Series
+                if hasattr(col, 'squeeze'):
+                    col = col.squeeze()
+                return col
+        except (KeyError, IndexError, TypeError):
+            pass
+        return None
 
     def _batch_download():
         import yfinance as yf
@@ -192,8 +222,7 @@ async def quick_price_update(tickers: list[str]) -> tuple[dict[str, float], dict
 
         for chunk in chunks:
             try:
-                import sys
-                print(f"[YF-BATCH] Downloading chunk: {chunk}", flush=True, file=sys.stderr)
+                logger.info(f"[YF-BATCH] Downloading chunk: {chunk}")
                 # Schritt 1: Tageskerzen für Vortagsschluss
                 daily_data = yf.download(
                     chunk,
@@ -201,18 +230,17 @@ async def quick_price_update(tickers: list[str]) -> tuple[dict[str, float], dict
                     interval="1d",
                     progress=False,
                     threads=False,  # threads=True kann auf Cloud Run hängen
+                    timeout=10,     # Verhindert dass Threads bei Connection Drops für immer im Pool hängen bleiben
                 )
-                print(f"[YF-BATCH] daily_data shape: {daily_data.shape if daily_data is not None else 'None'}, empty: {daily_data.empty if daily_data is not None else 'N/A'}", flush=True, file=sys.stderr)
                 if daily_data is not None and not daily_data.empty:
-                    print(f"[YF-BATCH] daily_data columns: {list(daily_data.columns)[:10]}", flush=True, file=sys.stderr)
+                    logger.info(
+                        f"[YF-BATCH] daily_data shape={daily_data.shape}, "
+                        f"nlevels={getattr(daily_data.columns, 'nlevels', 1)}"
+                    )
                     for ticker in chunk:
                         try:
-                            if len(chunk) == 1:
-                                col = daily_data["Close"].dropna()
-                            else:
-                                col = daily_data["Close"][ticker].dropna()
-                            if not col.empty:
-                                # Letzter Schlusskurs als Fallback-Preis
+                            col = _get_close_series(daily_data, ticker)
+                            if col is not None and len(col) > 0:
                                 last_close = float(col.iloc[-1])
                                 if last_close > 0 and not math.isnan(last_close):
                                     prices[ticker] = round(last_close, 2)
@@ -221,8 +249,10 @@ async def quick_price_update(tickers: list[str]) -> tuple[dict[str, float], dict
                                     prev = float(col.iloc[-2])
                                     if prev > 0 and not math.isnan(prev):
                                         prev_closes[ticker] = prev
-                        except (KeyError, IndexError, TypeError) as e:
-                            print(f"[YF-BATCH] ticker {ticker} parse error: {e}", flush=True, file=sys.stderr)
+                        except (KeyError, IndexError, TypeError, ValueError) as e:
+                            logger.debug(f"[YF-BATCH] ticker {ticker} parse error: {e}")
+                else:
+                    logger.warning(f"[YF-BATCH] daily_data is empty for chunk {chunk}")
 
                 # Schritt 2: Intraday + Pre-Market für aktuellsten Kurs
                 try:
@@ -233,26 +263,23 @@ async def quick_price_update(tickers: list[str]) -> tuple[dict[str, float], dict
                         prepost=True,
                         progress=False,
                         threads=False,
+                        timeout=10,
                     )
                     if intraday is not None and not intraday.empty:
                         for ticker in chunk:
                             try:
-                                if len(chunk) == 1:
-                                    col = intraday["Close"].dropna()
-                                else:
-                                    col = intraday["Close"][ticker].dropna()
-                                if not col.empty:
+                                col = _get_close_series(intraday, ticker)
+                                if col is not None and len(col) > 0:
                                     latest = float(col.iloc[-1])
                                     if latest > 0 and not math.isnan(latest):
                                         prices[ticker] = round(latest, 2)
-                            except (KeyError, IndexError, TypeError):
+                            except (KeyError, IndexError, TypeError, ValueError):
                                 pass
                 except Exception as e:
                     logger.debug(f"yfinance Intraday fehlgeschlagen für Batch {chunk}: {e}")
 
             except Exception as e:
-                print(f"[YF-BATCH] EXCEPTION for chunk {chunk}: {type(e).__name__}: {e}", flush=True, file=sys.stderr)
-                logger.debug(f"yfinance Batch fehlgeschlagen für {chunk}: {e}")
+                logger.warning(f"[YF-BATCH] EXCEPTION for chunk {chunk}: {type(e).__name__}: {e}")
                 continue
 
         # Schritt 3: Daily Change = (aktueller Preis - Vortagsschluss) / Vortagsschluss
@@ -264,6 +291,20 @@ async def quick_price_update(tickers: list[str]) -> tuple[dict[str, float], dict
                     pct = ((current - prev) / prev) * 100
                     daily_changes[ticker] = round(pct, 2)
 
+        # Debug: Warum fehlen Daily Changes?
+        if not daily_changes and valid_tickers:
+            missing_prices = [t for t in valid_tickers if t not in prices]
+            missing_prev = [t for t in valid_tickers if t in prices and t not in prev_closes]
+            logger.warning(
+                f"[YF-DEBUG] No daily changes! "
+                f"prices={len(prices)}/{len(valid_tickers)}, "
+                f"prev_closes={len(prev_closes)}, "
+                f"missing_prices={missing_prices[:3]}, "
+                f"missing_prev={missing_prev[:3]}"
+            )
+        else:
+            logger.info(f"[YF-BATCH] Result: {len(prices)} prices, {len(daily_changes)} daily changes")
+
         return prices, daily_changes
 
     try:
@@ -272,7 +313,7 @@ async def quick_price_update(tickers: list[str]) -> tuple[dict[str, float], dict
             loop.run_in_executor(_executor, _batch_download),
             timeout=90.0,
         )
-        logger.info(f"📊 yfinance Kurs-Update: {len(prices)}/{len(valid_tickers)} Ticker aktualisiert")
+        logger.info(f"📊 yfinance Kurs-Update: {len(prices)}/{len(valid_tickers)} Ticker, {len(daily_changes)} Daily Changes")
         return prices, daily_changes
     except asyncio.TimeoutError:
         logger.warning("yfinance batch download Timeout (90s)")

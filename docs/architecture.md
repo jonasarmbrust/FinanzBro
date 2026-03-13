@@ -53,6 +53,7 @@ FinanzBro/
 │   ├── fmp.py              # Financial Modeling Prep API
 │   ├── yfinance_data.py    # yFinance (Batch-Download)
 │   ├── finnhub_ws.py       # Finnhub WebSocket (Echtzeit US)
+│   ├── yfinance_ws.py      # yFinance WebSocket (Echtzeit International)
 │   ├── technical.py        # RSI, SMA, MACD Berechnung
 │   ├── fear_greed.py       # CNN Fear & Greed Index
 │   ├── currency.py         # EUR/USD/DKK/GBP Wechselkurse
@@ -61,6 +62,13 @@ FinanzBro/
 ├── static/                 # Frontend (HTML/JS/CSS)
 └── tests/                  # 113 pytest Tests
 ```
+
+## Stabilität & Concurrency
+
+Das Backend ist auf Ausfallsicherheit bei hängenden externen APIs ausgelegt:
+- **Timeouts & Netzwerk:** Alle asynchronen `httpx` Aufrufe und Hintergrund-Lade-Prozesse (wie `yfinance` Thread-Pools) haben strikte, garantierte Timeouts (meist 5s bis 30s), um `ThreadPoolExecutor`-Erschöpfung und Deadlocks zu verhindern.
+- **Background Tasks:** WebSocket-Streamer und Daten-Loads laufen isoliert via `asyncio.create_task()`. Startup-Prozesse lassen den Lifespan dank `asyncio.wait_for()` nicht hängen.
+- **I/O Threads:** Synchrone Datenbank-Operationen (z.B. SQLite-Migrationen) werden via `asyncio.to_thread()` aus dem Main-Event-Loop herausgehalten.
 
 ## Datenfluss
 

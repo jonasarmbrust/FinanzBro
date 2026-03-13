@@ -50,32 +50,46 @@ async def lifespan(app: FastAPI):
     # JSON → SQLite Migration (einmalig, idempotent)
     try:
         from database import migrate_json_to_sqlite
-        migrate_json_to_sqlite()
+        # Ausführen im Thread-Pool, da dies synchron den Event-Loop blockieren kann
+        await asyncio.to_thread(migrate_json_to_sqlite)
     except Exception as e:
         logger.debug(f"JSON-Migration übersprungen: {e}")
 
     # Fast startup: Parqet positions first, then yFinance prices
+    _startup_done = asyncio.Event()
+
     async def _startup_load():
-        await _update_parqet()
-        # yFinance Kurse + Daily Changes separat laden (unabhängig von FMP)
         try:
-            from services.portfolio_builder import update_yfinance_prices
-            result = await update_yfinance_prices()
-            logger.info(f"📈 yFinance-Startup: {result}")
-        except Exception as e:
-            logger.warning(f"yFinance-Startup fehlgeschlagen: {e}")
+            await _update_parqet()
+            # yFinance Kurse + Daily Changes separat laden (unabhängig von FMP)
+            try:
+                from services.portfolio_builder import update_yfinance_prices
+                result = await update_yfinance_prices()
+                logger.info(f"📈 yFinance-Startup: {result}")
+            except Exception as e:
+                logger.warning(f"yFinance-Startup fehlgeschlagen: {e}")
+        finally:
+            _startup_done.set()
 
     asyncio.create_task(_startup_load())
 
     # Verzögerter Full-Refresh: Lädt FMP, yFinance, Technical Daten im Hintergrund
-    # → Startet 30s nach App-Start (wenn Parqet-Positionen bereits geladen sind)
+    # → Wartet auf _startup_load (statt fixer 30s) um Race Conditions zu vermeiden
     # → User sieht nach ~90s vollständige Daten in der Detail-Ansicht
     async def _delayed_full_refresh():
-        await asyncio.sleep(30)
-        logger.info("🔄 Auto-Refresh: Lade FMP/yFinance/Technical Daten...")
         try:
+            # Maximal 60 Sekunden auf Parqet/yFinance-Init warten, um Deadlock zu vermeiden
+            await asyncio.wait_for(_startup_done.wait(), timeout=60.0)
+            await asyncio.sleep(10)  # Kurze Pause nach Startup
+            logger.info("🔄 Auto-Refresh: Lade FMP/yFinance/Technical Daten...")
             await _refresh_data()
             logger.info("✅ Auto-Refresh abgeschlossen")
+        except asyncio.TimeoutError:
+            logger.error("🚨 Startup dauerte zu lang, Auto-Refresh abgebrochen!")
+            # Notfall: Lock hart zurücksetzen, falls er hängt
+            from state import refresh_lock
+            if refresh_lock.locked():
+                refresh_lock.release()
         except Exception as e:
             logger.warning(f"Auto-Refresh fehlgeschlagen: {e}")
 
@@ -90,17 +104,31 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Finnhub-Start fehlgeschlagen: {e}")
 
-    # Subscribe portfolio tickers to Finnhub after Parqet loads
-    async def _subscribe_finnhub():
-        """Warte auf Portfolio-Daten, dann Ticker bei Finnhub abonnieren."""
+    # Start yfinance WebSocket (kein API-Key nötig)
+    yf_streamer = None
+    try:
+        from fetchers.yfinance_ws import get_yf_streamer
+        yf_streamer = get_yf_streamer()
+        await yf_streamer.start()
+    except Exception as e:
+        logger.warning(f"yfinance WS-Start fehlgeschlagen: {e}")
+
+    # Subscribe portfolio tickers after Parqet loads
+    async def _subscribe_streamers():
+        """Warte auf Portfolio-Daten, dann Ticker bei Streamern abonnieren."""
         await asyncio.sleep(15)  # Warte bis Parqet geladen ist
         summary = portfolio_data.get("summary")
-        if summary and summary.stocks and finnhub_streamer:
+        if summary and summary.stocks:
             tickers = [s.position.ticker for s in summary.stocks]
-            finnhub_streamer.subscribe(tickers)
+            # Finnhub: US-Ticker
+            if finnhub_streamer:
+                finnhub_streamer.subscribe(tickers)
+            # yfinance WS: Alle Ticker (inkl. Nicht-US)
+            if yf_streamer:
+                yf_streamer.subscribe(tickers)
 
-    if finnhub_streamer and settings.FINNHUB_API_KEY:
-        asyncio.create_task(_subscribe_finnhub())
+    if finnhub_streamer or yf_streamer:
+        asyncio.create_task(_subscribe_streamers())
 
     # Schedule: Einzige geplante Analyse um 16:15 CET
     try:
@@ -169,31 +197,20 @@ async def lifespan(app: FastAPI):
             asyncio.create_task(_register_webhook())
 
         # Intraday Kurs-Updates (alle 15min während Marktzeiten, 0 FMP-Calls)
+        # Nutzt die zentrale update_yfinance_prices() Funktion die:
+        # - EUR-Konvertierung korrekt durchführt
+        # - Daily Changes setzt
+        # - Summary-Totals aktualisiert
         async def _intraday_price_update():
-            """Aktualisiert Kurse via yfinance batch (kein FMP-Verbrauch)."""
-            from state import portfolio_data
-            summary = portfolio_data.get("summary")
-            if not summary or not summary.stocks:
-                return
-            tickers = [s.position.ticker for s in summary.stocks if s.position.ticker != "CASH"]
-            if not tickers:
-                return
+            """Aktualisiert Kurse + Daily Changes via update_yfinance_prices()."""
             try:
-                from fetchers.yfinance_data import quick_price_update
-                from state import YFINANCE_ALIASES
-                yf_map = {t: YFINANCE_ALIASES.get(t, t) for t in tickers}
-                prices, daily_changes = await quick_price_update(list(set(yf_map.values())))
-                updated = 0
-                for stock in summary.stocks:
-                    t = stock.position.ticker
-                    yf_t = yf_map.get(t, t)
-                    if yf_t in prices and prices[yf_t] > 0:
-                        stock.position.current_price = prices[yf_t]
-                        updated += 1
-                    if yf_t in daily_changes:
-                        stock.position.daily_change_pct = daily_changes[yf_t]
-                if updated:
-                    logger.info(f"📈 Intraday-Update: {updated}/{len(tickers)} Kurse aktualisiert")
+                from services.portfolio_builder import update_yfinance_prices
+                result = await update_yfinance_prices()
+                if result.get("status") == "done":
+                    logger.info(
+                        f"📈 Intraday-Update: {result.get('prices_updated', 0)} Kurse, "
+                        f"{result.get('daily_changes', 0)} Daily Changes"
+                    )
             except Exception as e:
                 logger.debug(f"Intraday-Update fehlgeschlagen: {e}")
 
@@ -212,9 +229,19 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown: Finnhub WebSocket sauber schließen
-    if finnhub_streamer:
-        await finnhub_streamer.stop()
+    # Shutdown: WebSockets sauber schließen (mit Timeout gegen Deadlocks)
+    try:
+        if finnhub_streamer:
+            await asyncio.wait_for(finnhub_streamer.stop(), timeout=3.0)
+    except Exception as e:
+        logger.debug(f"Finnhub Shutdown ignoriert: {e}")
+        
+    try:
+        if yf_streamer:
+            await asyncio.wait_for(yf_streamer.stop(), timeout=3.0)
+    except Exception as e:
+        logger.debug(f"yFinance WS Shutdown ignoriert: {e}")
+        
     logger.info("FinanzBro beendet.")
 
 

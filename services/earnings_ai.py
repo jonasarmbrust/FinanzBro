@@ -75,7 +75,7 @@ async def analyze_earnings(tickers: list[str]) -> list[EarningsInsight]:
         config["response_mime_type"] = "application/json"
         config["response_schema"] = EARNINGS_RESPONSE_SCHEMA
 
-        response = client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model="gemini-2.5-pro",
             contents=prompt,
             config=config,

@@ -10,7 +10,7 @@ pydantic==2.10.4
 pydantic-settings>=2.0
 
 # Finanzdaten
-yfinance==0.2.48
+yfinance>=1.2.0
 websockets==14.1
 
 # Scheduling

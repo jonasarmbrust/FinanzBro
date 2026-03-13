@@ -142,7 +142,7 @@ class FinnhubStreamer:
                 async with websockets.connect(url, ping_interval=30) as ws:
                     self._ws = ws
                     self._reconnect_delay = 1.0  # Reset backoff on success
-                    logger.info(f"✅ Finnhub WebSocket verbunden – abonniere {len(self._subscribed)} Ticker")
+                    logger.info(f"Finnhub WebSocket verbunden – abonniere {len(self._subscribed)} Ticker")
 
                     # Subscribe all registered tickers
                     await self._send_subscribes(list(self._subscribed))

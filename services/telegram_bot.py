@@ -349,7 +349,7 @@ async def _cmd_news(chat_id: str):
         if cached:
             config["cached_content"] = cached
 
-        response = client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model="gemini-2.5-pro",
             contents=prompt,
             config=config,
@@ -371,7 +371,7 @@ async def _cmd_news(chat_id: str):
             await _aio.sleep(2)  # Kurze Pause
 
             client_fb = get_client()
-            response = client_fb.models.generate_content(
+            response = await client_fb.aio.models.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt,
             )
@@ -592,7 +592,7 @@ async def _cmd_chat(chat_id: str, question: str):
         # Versuche mit Search Grounding für aktuelle Daten
         config = get_grounded_config()
 
-        response = client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model="gemini-2.5-pro",
             contents=f"{system_prompt}User-Frage: {question}",
             config=config,
@@ -683,7 +683,7 @@ async def _cmd_risk(chat_id: str, scenario: Optional[str] = None):
 
         config = get_grounded_config()
 
-        response = client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model="gemini-2.5-pro",
             contents=prompt,
             config=config,

@@ -154,7 +154,7 @@ async def cache_portfolio_context(summary) -> Optional[str]:
         # Alten Cache löschen (falls vorhanden)
         if _active_cache_name:
             try:
-                client.caches.delete(name=_active_cache_name)
+                await client.aio.caches.delete(name=_active_cache_name)
                 logger.debug(f"Alter Cache gelöscht: {_active_cache_name}")
             except Exception:
                 pass  # Cache existiert evtl. nicht mehr (TTL abgelaufen)
@@ -162,7 +162,7 @@ async def cache_portfolio_context(summary) -> Optional[str]:
         # Neuen Cache erstellen
         from google.genai.types import Content, Part
 
-        cache = client.caches.create(
+        cache = await client.aio.caches.create(
             model="gemini-2.5-pro",
             config={
                 "contents": [
