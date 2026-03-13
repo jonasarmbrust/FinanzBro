@@ -2060,15 +2060,17 @@ let _chatHistory = [];
 
 function switchAdvisorMode(mode) {
     document.querySelectorAll('.advisor-mode-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.advisor-mode-content').forEach(c => c.classList.remove('active'));
+    const analyseDiv = document.getElementById('advisorAnalyseMode');
+    const chatDiv = document.getElementById('advisorChatMode');
     if (mode === 'chat') {
         document.getElementById('advisorModeChat').classList.add('active');
-        document.getElementById('advisorChatMode').classList.add('active');
-        // Auto-focus input
+        analyseDiv.style.display = 'none';
+        chatDiv.style.display = 'block';
         setTimeout(() => document.getElementById('advisorChatInput')?.focus(), 100);
     } else {
         document.getElementById('advisorModeAnalyse').classList.add('active');
-        document.getElementById('advisorAnalyseMode').classList.add('active');
+        analyseDiv.style.display = 'block';
+        chatDiv.style.display = 'none';
     }
 }
 
