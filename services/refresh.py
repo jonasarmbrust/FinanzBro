@@ -2,7 +2,7 @@
 
 Enthält die gesamte Refresh-Logik:
 - _refresh_data() / _do_refresh(): Voller Refresh aller Quellen
-- _quick_price_refresh(): Schneller Kurs-Update (Finnhub + yfinance)
+- _quick_price_refresh(): Schneller Kurs-Update (yfinance WS + Batch)
 - _update_parqet(): Leichtgewichtiges Parqet-Update
 """
 import asyncio
@@ -380,7 +380,7 @@ async def _do_refresh():
 
 
 async def _quick_price_refresh():
-    """Schneller Kurs-Update: Finnhub (Echtzeit) + yfinance (Fallback + Daily Changes)."""
+    """Schneller Kurs-Update: yfinance WS (Echtzeit) + yfinance Batch (Fallback + Daily Changes)."""
     summary = portfolio_data.get("summary")
     if not summary or not summary.stocks:
         return
@@ -394,23 +394,8 @@ async def _quick_price_refresh():
         prices = {}
         daily_changes = {}
 
-        # 1. Finnhub Echtzeit-Preise (US-Ticker)
-        finnhub_count = 0
-        try:
-            from fetchers.finnhub_ws import get_streamer
-            streamer = get_streamer()
-            if streamer.is_connected:
-                fh_prices = streamer.get_all_prices()
-                for t in tickers:
-                    p = fh_prices.get(t.upper())
-                    if p and p > 0:
-                        prices[t] = p
-        except Exception as e:
-            logger.debug(f"Finnhub-Preise nicht verfügbar: {e}")
 
-        finnhub_count = len(prices)  # Alle bisherigen sind von Finnhub
-
-        # 1.5. yfinance WebSocket (Nicht-US-Ticker + Finnhub-Lücken)
+        # 1. yfinance WebSocket (Echtzeit-Preise für alle Ticker)
         yf_ws_count = 0
         try:
             from fetchers.yfinance_ws import get_yf_streamer
@@ -418,7 +403,7 @@ async def _quick_price_refresh():
             if yf_streamer.is_connected:
                 yf_ws_prices = yf_streamer.get_all_prices()
                 for t in tickers:
-                    if t not in prices and t != "CASH":
+                    if t != "CASH":
                         yf_alias = YFINANCE_ALIASES.get(t, t)
                         p = yf_ws_prices.get(yf_alias) or yf_ws_prices.get(t)
                         if p and p > 0:
@@ -495,11 +480,10 @@ async def _quick_price_refresh():
         summary.daily_total_change_pct = round(daily_total_pct, 2)
         summary.last_updated = datetime.now(tz=TZ_BERLIN)
 
-        yf_batch_count = updated - finnhub_count - yf_ws_count
+        yf_batch_count = updated - yf_ws_count
         logger.info(
             f"⚡ Quick-Update: {updated}/{len(tickers)} Kurse aktualisiert "
-            f"(Finnhub: {finnhub_count}, yfinance-WS: {yf_ws_count}, "
-            f"yfinance-Batch: {yf_batch_count}), "
+            f"(yfinance-WS: {yf_ws_count}, yfinance-Batch: {yf_batch_count}), "
             f"{daily_updated} Daily Changes, "
             f"Wert: €{total_value:,.2f}"
         )

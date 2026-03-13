@@ -23,8 +23,7 @@ class Settings(BaseSettings):
     FMP_API_KEY: str = ""
     FMP_BASE_URL: str = "https://financialmodelingprep.com/stable"
 
-    # Finnhub (Echtzeit-Kurse via WebSocket)
-    FINNHUB_API_KEY: str = ""
+
 
     # Parqet Connect API (OAuth2)
     PARQET_CLIENT_ID: str = ""

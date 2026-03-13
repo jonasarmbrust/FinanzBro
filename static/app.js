@@ -11,7 +11,7 @@ let currentFilter = 'all';
 let currentSort = 'score-desc';
 let displayCurrency = 'EUR'; // EUR or USD
 let priceEventSource = null;
-let finnhubConnected = false;
+let wsConnected = false;
 
 function getRate() {
     return portfolioData?.eur_usd_rate || 1.08;
@@ -1091,9 +1091,9 @@ function startPriceStream() {
                     return;
                 }
 
-                // Update Finnhub connection status
-                if (data.finnhub_connected !== undefined) {
-                    finnhubConnected = data.finnhub_connected;
+                // Update WebSocket connection status
+                if (data.ws_connected !== undefined) {
+                    wsConnected = data.ws_connected;
                     updateLiveIndicator();
                 }
 
@@ -1107,7 +1107,7 @@ function startPriceStream() {
         };
 
         priceEventSource.onerror = () => {
-            finnhubConnected = false;
+            wsConnected = false;
             updateLiveIndicator();
             priceEventSource.close();
             // Reconnect after 5 seconds
@@ -1218,7 +1218,7 @@ function updateLiveIndicator() {
         indicator.style.cssText = 'margin-left:8px;font-size:0.75rem;';
         lastUpdate.parentElement.insertBefore(indicator, lastUpdate.nextSibling);
     }
-    if (finnhubConnected) {
+    if (wsConnected) {
         indicator.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;margin-right:4px;vertical-align:middle;"></span><span style="color:#22c55e;font-weight:600;">LIVE</span>';
     } else {
         indicator.innerHTML = '';

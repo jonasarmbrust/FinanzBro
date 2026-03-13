@@ -2,7 +2,7 @@
 
 Testet den YFinanceStreamer In-Memory-Cache, Subscribe/Unsubscribe-Logik
 und Message-Processing. Keine echte WebSocket-Verbindung nötig.
-Strukturiert nach dem test_finnhub.py Vorbild.
+Testet den yfinance WebSocket-Streamer (Unit-Tests).
 """
 import sys
 from pathlib import Path

@@ -234,15 +234,16 @@ async def get_status():
         "last_refresh": portfolio_data.get("last_refresh"),
         "refreshing": portfolio_data["refreshing"],
         "positions": portfolio_data["summary"].num_positions if portfolio_data["summary"] else 0,
-        "finnhub_connected": _is_finnhub_connected(),
+        "ws_connected": _is_ws_connected(),
         "fmp_usage": get_fmp_usage(),
     }
 
 
-def _is_finnhub_connected() -> bool:
-    """Prüft ob Finnhub WebSocket verbunden ist."""
+def _is_ws_connected() -> bool:
+    """Prüft ob yFinance WebSocket verbunden ist."""
     try:
-        from fetchers.finnhub_ws import get_streamer
-        return get_streamer().is_connected
+        from fetchers.yfinance_ws import get_yf_streamer
+        return get_yf_streamer().is_connected
     except Exception:
         return False
+

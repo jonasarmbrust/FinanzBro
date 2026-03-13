@@ -1,13 +1,13 @@
 """FinanzBro - yfinance Echtzeit-Kurs-Streaming
 
 WebSocket-basierter Echtzeit-Kursfetcher über yfinance AsyncWebSocket.
-Kein API-Key nötig. Ergänzt Finnhub für Nicht-US-Ticker (DE, DK, L, etc.).
+Kein API-Key nötig. Primäre Echtzeit-Preisquelle für alle Ticker (US + EU).
 
 Features:
   - AsyncWebSocket-Streaming mit Auto-Reconnect
   - In-Memory-Preiscache (thread-safe)
   - Subscribe/Unsubscribe für Ticker
-  - Fokus auf Nicht-US-Ticker (Finnhub deckt US ab)
+  - Alle Ticker (US + EU: .DE, .L, .CO)
 """
 import asyncio
 import logging
@@ -22,7 +22,7 @@ class YFinanceStreamer:
 
     Verbindet sich zum Yahoo Finance WebSocket, empfängt Preis-Updates
     und speichert letzte Preise in einem In-Memory-Dict.
-    Ergänzt FinnhubStreamer für Nicht-US-Ticker.
+    Primäre Echtzeit-Preisquelle für alle Ticker.
     """
 
     def __init__(self):

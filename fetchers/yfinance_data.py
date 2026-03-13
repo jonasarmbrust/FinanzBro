@@ -448,6 +448,32 @@ async def fetch_yfinance_fundamentals(ticker_symbol: str) -> dict:
             if n_analysts:
                 ad.num_analysts = int(n_analysts)
 
+            # Buy/Hold/Sell Counts aus ticker.recommendations (v1.2.0 Format)
+            try:
+                recs = ticker.recommendations
+                if recs is not None and not recs.empty and "strongBuy" in recs.columns:
+                    r0 = recs.iloc[0]
+                    ad.strong_buy_count = int(r0.get("strongBuy", 0) or 0)
+                    ad.buy_count = int(r0.get("buy", 0) or 0)
+                    ad.hold_count = int(r0.get("hold", 0) or 0)
+                    ad.sell_count = int(r0.get("sell", 0) or 0)
+                    ad.strong_sell_count = int(r0.get("strongSell", 0) or 0)
+                    total = ad.strong_buy_count + ad.buy_count + ad.hold_count + ad.sell_count + ad.strong_sell_count
+                    if total > 0:
+                        ad.num_analysts = max(ad.num_analysts, total)
+                        # Konsens aus Counts ableiten falls nicht vorhanden
+                        if not ad.consensus:
+                            buy_total = ad.strong_buy_count + ad.buy_count
+                            sell_total = ad.sell_count + ad.strong_sell_count
+                            if buy_total > sell_total and buy_total > ad.hold_count:
+                                ad.consensus = "Buy"
+                            elif sell_total > buy_total and sell_total > ad.hold_count:
+                                ad.consensus = "Sell"
+                            else:
+                                ad.consensus = "Hold"
+            except Exception:
+                pass
+
             sector = info.get("sector", "")
             name = info.get("shortName") or info.get("longName") or ""
 

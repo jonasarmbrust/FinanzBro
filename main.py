@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 def subscribe_portfolio_tickers():
-    """Subscribt Portfolio-Ticker bei allen aktiven WebSocket-Streamern.
+    """Subscribt Portfolio-Ticker beim yFinance WebSocket-Streamer.
 
     Kann jederzeit aufgerufen werden — z.B. nach Startup oder Token-Renewal.
     """
@@ -42,25 +42,16 @@ def subscribe_portfolio_tickers():
         return
 
     tickers = [s.position.ticker for s in summary.stocks]
-    logger.info(f"Subscribing {len(tickers)} Ticker bei WebSocket-Streamern")
+    logger.info(f"Subscribing {len(tickers)} Ticker bei yFinance WebSocket")
 
-    # Finnhub: US-Ticker
-    try:
-        from fetchers.finnhub_ws import get_streamer
-        streamer = get_streamer()
-        if streamer.is_connected:
-            streamer.subscribe(tickers)
-    except Exception:
-        pass
-
-    # yfinance WS: Alle Ticker (inkl. Nicht-US)
+    # yfinance WS: Alle Ticker (US + Nicht-US)
     try:
         from fetchers.yfinance_ws import get_yf_streamer
         streamer = get_yf_streamer()
-        if streamer.is_connected:
-            streamer.subscribe(tickers)
+        streamer.subscribe(tickers)
     except Exception:
         pass
+
 
 
 async def reload_portfolio_and_subscribe():
@@ -90,7 +81,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"   Environment: {settings.ENVIRONMENT}")
     logger.info(f"   Port: {settings.SERVER_PORT}")
     logger.info(f"   Demo-Mode: {settings.demo_mode}")
-    logger.info(f"   Finnhub: {'✅ API-Key vorhanden' if settings.FINNHUB_API_KEY else '❌ Kein API-Key'}")
+
 
     # Volatile Caches beim Start löschen (Technicals)
     # Parqet-Positionen, Wechselkurse und Fear&Greed bleiben erhalten
@@ -147,14 +138,6 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(_delayed_full_refresh())
 
-    # Start Finnhub WebSocket (if API key configured)
-    finnhub_streamer = None
-    try:
-        from fetchers.finnhub_ws import get_streamer
-        finnhub_streamer = get_streamer()
-        await finnhub_streamer.start()
-    except Exception as e:
-        logger.warning(f"Finnhub-Start fehlgeschlagen: {e}")
 
     # Start yfinance WebSocket (kein API-Key nötig)
     yf_streamer = None
@@ -178,7 +161,7 @@ async def lifespan(app: FastAPI):
 
         subscribe_portfolio_tickers()
 
-    if finnhub_streamer or yf_streamer:
+    if yf_streamer:
         asyncio.create_task(_subscribe_streamers())
 
     # Schedule: Einzige geplante Analyse um 16:15 CET
@@ -280,13 +263,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown: WebSockets sauber schließen (mit Timeout gegen Deadlocks)
-    try:
-        if finnhub_streamer:
-            await asyncio.wait_for(finnhub_streamer.stop(), timeout=3.0)
-    except Exception as e:
-        logger.debug(f"Finnhub Shutdown ignoriert: {e}")
-        
+    # Shutdown: WebSocket sauber schließen (mit Timeout gegen Deadlocks)
     try:
         if yf_streamer:
             await asyncio.wait_for(yf_streamer.stop(), timeout=3.0)

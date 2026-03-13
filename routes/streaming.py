@@ -1,6 +1,6 @@
 """FinanzBro - SSE Streaming Route.
 
-Server-Sent Events Endpoint für Live-Preis-Updates (Finnhub + Portfolio).
+Server-Sent Events Endpoint für Live-Preis-Updates (yFinance WS + Portfolio).
 Alle Preise werden vor dem Senden ans Frontend in EUR konvertiert.
 """
 import asyncio
@@ -19,15 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _is_finnhub_connected() -> bool:
-    """Prüft ob Finnhub WebSocket verbunden ist."""
-    try:
-        from fetchers.finnhub_ws import get_streamer
-        return get_streamer().is_connected
-    except Exception:
-        return False
-
-def _is_yfinance_connected() -> bool:
+def _is_ws_connected() -> bool:
     """Prüft ob yFinance WebSocket verbunden ist."""
     try:
         from fetchers.yfinance_ws import get_yf_streamer
@@ -67,20 +59,7 @@ async def stream_prices(request: Request):
             except Exception:
                 pass
 
-            # 1a. Finnhub prices (raw USD for US tickers) → convert to EUR
-            try:
-                from fetchers.finnhub_ws import get_streamer
-                streamer = get_streamer()
-                if streamer.is_connected:
-                    raw_fh = streamer.get_all_prices()
-                    for ticker, usd_price in raw_fh.items():
-                        if usd_price and usd_price > 0:
-                            # Finnhub only streams US tickers → always USD → EUR
-                            current_prices[ticker] = round(usd_price / eur_usd, 2)
-            except Exception:
-                pass
-
-            # 1b. yFinance prices (International + US) → convert to EUR
+            # 1. yFinance WebSocket prices → convert to EUR
             try:
                 from fetchers.yfinance_ws import get_yf_streamer
                 yf_streamer = get_yf_streamer()
@@ -89,15 +68,11 @@ async def stream_prices(request: Request):
                     for ticker, local_price in raw_yf.items():
                         # yfinance liefert in lokaler Währung (EUR/DKK/GBP/USD)
                         if local_price and local_price > 0:
-                            eur_price = converter.to_eur(local_price, ticker)
-                            # Überschreiben nur, wenn noch kein Preis da (Finnhub war schneller) 
-                            # oder bei Nicht-USD Tickern (die Finnhub eh nicht hat)
-                            if ticker not in current_prices:
-                                current_prices[ticker] = eur_price
+                            current_prices[ticker] = converter.to_eur(local_price, ticker)
             except Exception:
                 pass
 
-            # 2. Portfolio prices for non-Finnhub tickers (already in EUR)
+            # 2. Portfolio prices for non-WS tickers (already in EUR)
             if summary:
                 for stock in summary.stocks:
                     t = stock.position.ticker
@@ -116,8 +91,7 @@ async def stream_prices(request: Request):
                 event_data = json.dumps({
                     "prices": diffs,
                     "timestamp": datetime.now().isoformat(),
-                    "finnhub_connected": _is_finnhub_connected(),
-                    "yfinance_connected": _is_yfinance_connected(),
+                    "ws_connected": _is_ws_connected(),
                 })
                 yield f"data: {event_data}\n\n"
             else:
