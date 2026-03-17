@@ -22,6 +22,8 @@ from models import (
 )
 from state import YFINANCE_ALIASES
 
+import yfinance as yf
+
 logger = logging.getLogger(__name__)
 
 
@@ -140,7 +142,7 @@ async def load_position_data(
 async def load_positions_batched(
     positions: list[PortfolioPosition],
     fear_greed_data: Optional[FearGreedData] = None,
-    batch_size: int = 4,
+    batch_size: int = 2,
 ) -> list[StockFullData]:
     """Lädt Daten für alle Positionen in Batches.
 
@@ -234,7 +236,6 @@ async def _yfinance_price_fallback(pos: PortfolioPosition):
         return
 
     def _fetch_price():
-        import yfinance as yf
         yf_ticker = YFINANCE_ALIASES.get(pos.ticker, pos.ticker)
         ticker_obj = yf.Ticker(yf_ticker)
         return ticker_obj.info or {}

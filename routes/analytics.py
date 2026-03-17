@@ -181,9 +181,14 @@ async def get_benchmark(symbol: str = "SPY", period: str = "6month"):
                 "return_pct": round(pct, 2),
             })
 
-        # Portfolio-Performance aus History
-        from database import load_snapshots as load_history
-        portfolio_history = load_history(days=days)
+        # Portfolio-Performance aus History oder Demo-Modus
+        summary = portfolio_data.get("summary")
+        if summary and summary.is_demo:
+            from fetchers.demo_data import get_demo_portfolio_history
+            portfolio_history = get_demo_portfolio_history(days=days)
+        else:
+            from database import load_snapshots as load_history
+            portfolio_history = load_history(days=days)
 
         portfolio_data_series = []
         if portfolio_history and len(portfolio_history) >= 2:
@@ -531,6 +536,20 @@ async def get_portfolio_history_detail(period: str = "6month"):
     cached = _get_cached(cache_key)
     if cached is not None:
         return cached
+
+    # Demo-Modus: Synthetische Verlaufsdaten
+    summary = portfolio_data.get("summary")
+    if summary and summary.is_demo:
+        from fetchers.demo_data import get_demo_portfolio_history
+        demo_history = get_demo_portfolio_history(days=days)
+        # Format anpassen für Stacked Area Chart
+        return {
+            "dates": [d["date"] for d in demo_history],
+            "total_values": [d["total_value"] for d in demo_history],
+            "invested_values": [d["invested_capital"] for d in demo_history],
+            "positions": {},
+            "is_demo": True,
+        }
 
     # Activities laden
     activities = portfolio_data.get("activities")
