@@ -986,11 +986,11 @@ async def _process_voice_with_gemini(audio_bytes: bytes, caption: str = "") -> s
         Part.from_bytes(data=audio_bytes, mime_type="audio/ogg"),
     ]
     if caption:
-        parts.append(Part.from_text(f"Zusatzinfo vom User: {caption}"))
-    parts.append(Part.from_text(
+        parts.append(Part(text=f"Zusatzinfo vom User: {caption}"))
+    parts.append(Part(text=(
         "Bitte höre die Sprachnachricht an und beantworte die Frage/Anfrage "
         "des Users. Nutze die verfügbaren Tools wenn du Daten brauchst."
-    ))
+    )))
 
     # Gemini-Call
     response = client.models.generate_content(
