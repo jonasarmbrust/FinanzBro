@@ -74,9 +74,8 @@ function renderDashboard() {
 function renderHeader() {
     const d = portfolioData;
 
-    // Demo badge
-    const badge = document.getElementById('demoBadge');
-    badge.style.display = d.is_demo ? 'inline-block' : 'none';
+    // Demo UI state (badge, banner, button)
+    updateDemoUI();
 
     // Portfolio value (converted)
     document.getElementById('totalValue').textContent = formatCurrency(toDisplay(d.total_value));
@@ -923,6 +922,75 @@ function getFilteredSorted() {
     });
 
     return stocks;
+}
+
+// ==================== Demo Mode ====================
+async function toggleDemo() {
+    const btn = document.getElementById('btnDemo');
+    const isDemo = portfolioData?.is_demo || false;
+
+    btn.disabled = true;
+    btn.textContent = isDemo ? '⏳ Wird geladen...' : '⏳ Demo laden...';
+
+    try {
+        const endpoint = isDemo ? '/api/demo/deactivate' : '/api/demo/activate';
+        const res = await fetch(endpoint, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.status === 'ok') {
+            if (isDemo) {
+                // Deactivated — wait for real data to load
+                document.getElementById('lastUpdate').textContent = '🔄 Echte Daten werden geladen...';
+                // Poll until data is ready
+                const pollForData = async () => {
+                    try {
+                        const r = await fetch('/api/portfolio');
+                        if (r.status === 503) {
+                            setTimeout(pollForData, 2000);
+                            return;
+                        }
+                        portfolioData = await r.json();
+                        renderDashboard();
+                    } catch (e) {
+                        setTimeout(pollForData, 2000);
+                    }
+                };
+                setTimeout(pollForData, 1500);
+            } else {
+                // Activated — reload immediately
+                await loadPortfolio();
+            }
+        }
+    } catch (err) {
+        console.error('Demo-Toggle fehlgeschlagen:', err);
+        document.getElementById('lastUpdate').textContent = '❌ Demo-Toggle fehlgeschlagen';
+    } finally {
+        btn.disabled = false;
+        updateDemoUI();
+    }
+}
+
+function updateDemoUI() {
+    const isDemo = portfolioData?.is_demo || false;
+    const btn = document.getElementById('btnDemo');
+    const banner = document.getElementById('demoBanner');
+    const badge = document.getElementById('demoBadge');
+
+    if (btn) {
+        btn.innerHTML = isDemo
+            ? '<span class="refresh-icon">🔄</span> Live-Daten'
+            : '<span class="refresh-icon">🎭</span> Demo';
+        btn.title = isDemo
+            ? 'Zurück zu echten Portfolio-Daten'
+            : 'Demo-Portfolio mit fiktiven Daten laden';
+        btn.classList.toggle('demo-active', isDemo);
+    }
+    if (banner) {
+        banner.classList.toggle('active', isDemo);
+    }
+    if (badge) {
+        badge.style.display = isDemo ? 'inline-block' : 'none';
+    }
 }
 
 // ==================== Refresh ====================

@@ -216,6 +216,38 @@ body {
     background: linear-gradient(135deg, #06b6d4, #3b82f6);
 }
 
+.btn-demo {
+    background: linear-gradient(135deg, #8b5cf6, #f59e0b);
+}
+
+.btn-demo.demo-active {
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.35);
+    animation: demoPulse 2s ease-in-out infinite;
+}
+
+@keyframes demoPulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(245, 158, 11, 0.25); }
+    50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.45); }
+}
+
+/* Demo Banner at top of page */
+.demo-banner {
+    display: none;
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.12), rgba(139, 92, 246, 0.12));
+    border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+    padding: 0.4rem 2rem;
+    text-align: center;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #f59e0b;
+    letter-spacing: 0.5px;
+}
+
+.demo-banner.active {
+    display: block;
+}
+
 .btn-refresh:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 15px var(--accent-blue-glow);

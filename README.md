@@ -113,6 +113,13 @@ Alle JSON-AI-Services nutzen `response_schema` — Gemini garantiert valides JSO
 | GET | `/api/earnings-calendar` | Earnings-Kalender (Portfolio-Positionen) |
 | GET | `/api/status` | System-Status |
 
+### Demo Mode (`routes/demo.py`)
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| POST | `/api/demo/activate` | Demo-Portfolio laden (12 fiktive Positionen) |
+| POST | `/api/demo/deactivate` | Demo deaktivieren, echter Refresh |
+| GET | `/api/demo/status` | Demo-Modus aktiv? |
+
 ### Refresh (`routes/refresh.py`)
 | Methode | Pfad | Beschreibung |
 |---|---|---|
@@ -263,6 +270,7 @@ FinanzBro/
 │   ├── refresh.py       # Refresh + Status
 │   ├── analysis.py      # Analyse-Reports
 │   ├── analytics.py     # Erweiterte Analysen + Attribution
+│   ├── demo.py          # Demo-Modus Toggle (activate/deactivate/status)
 │   ├── parqet_oauth.py  # OAuth2 PKCE
 │   ├── streaming.py     # SSE Preis-Stream
 │   └── telegram.py      # Telegram Webhook (mit Secret-Token)
@@ -270,5 +278,5 @@ FinanzBro/
 │   ├── index.html       # Dashboard UI
 │   ├── app.js           # Frontend-Logic
 │   └── styles.css       # Styling
-└── tests/               # 350+ pytest Tests
+└── tests/               # 367+ pytest Tests
 ```

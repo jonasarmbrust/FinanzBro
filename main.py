@@ -25,6 +25,7 @@ from routes.analysis import router as analysis_router
 from routes.analytics import router as analytics_router
 from routes.telegram import router as telegram_router
 from routes.parqet_oauth import router as parqet_oauth_router
+from routes.demo import router as demo_router
 
 # Structured Logging (JSON in production, colored console in dev)
 setup_logging(settings.ENVIRONMENT)
@@ -329,6 +330,7 @@ app.include_router(analysis_router)
 app.include_router(analytics_router)
 app.include_router(telegram_router)
 app.include_router(parqet_oauth_router)
+app.include_router(demo_router)
 
 
 # Health Check (für Cloud Run Startup/Liveness Probes)
@@ -338,18 +340,73 @@ async def health():
     return {"status": "ok"}
 
 if __name__ == "__main__":
+    import os
+    import subprocess
     import uvicorn
+
+    def _kill_port_occupants(port: int) -> None:
+        """Killt alle Prozesse die den Port bereits belegen.
+
+        Verhindert Whitescreen durch Zombie-Server-Instanzen die sich
+        über die Zeit ansammeln (z.B. durch Ctrl+C das nicht sauber
+        terminiert, oder IDE-Restarts).
+        """
+        my_pid = os.getpid()
+        killed = []
+
+        try:
+            result = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in result.stdout.splitlines():
+                # Prüfe ob diese Zeile unseren Port als LISTENING betrifft
+                # Format: "  TCP    0.0.0.0:8000  ...  ABHÖREN  PID"
+                parts = line.split()
+                if len(parts) < 4:
+                    continue
+                local_addr = parts[1] if len(parts) >= 2 else ""
+                # Exakter Port-Match (nicht :80001 statt :8000)
+                if not local_addr.endswith(f":{port}"):
+                    continue
+                # Nur LISTENING/ABHÖREN Status
+                if not any(s in line for s in ("LISTEN", "ABHÖR")):
+                    continue
+                try:
+                    pid = int(parts[-1])
+                    if pid != my_pid and pid > 0:
+                        # Windows: taskkill /F ist zuverlässiger als os.kill
+                        subprocess.run(
+                            ["taskkill", "/F", "/PID", str(pid)],
+                            capture_output=True, timeout=3,
+                        )
+                        killed.append(pid)
+                except (ValueError, subprocess.TimeoutExpired):
+                    pass
+        except Exception:
+            pass
+
+        if killed:
+            import time
+            time.sleep(0.5)
+            print(f"\033[1m🧹 {len(killed)} alte Server-Instanzen auf Port {port} beendet: {killed}\033[0m")
+
     is_dev = settings.ENVIRONMENT == "development"
+
+    # Alte Zombie-Prozesse auf dem Port killen bevor wir starten
+    _kill_port_occupants(settings.SERVER_PORT)
 
     uvicorn.run(
         "main:app",
         host=settings.SERVER_HOST,
         port=settings.SERVER_PORT,
+        # Reload bleibt aktiv in dev: Nach dem Full-Refresh blockiert ein
+        # Background-Task (yfinance WS / tech_radar_ai) den Event-Loop.
+        # Der Reload-Neustart hebt die Blockade auf.
+        # _kill_port_occupants() verhindert Zombie-Prozesse.
         reload=is_dev,
-        # NUR Source-Verzeichnisse überwachen — verhindert Endlos-Neustarts
-        # durch __pycache__/*.pyc, cache/*.db, logs/* etc.
         reload_dirs=[
-            ".", "engine", "fetchers", "routes", "services",
+            "engine", "fetchers", "routes", "services",
             "middleware", "static",
         ] if is_dev else None,
         reload_includes=["*.py", "*.html", "*.js", "*.css"] if is_dev else None,

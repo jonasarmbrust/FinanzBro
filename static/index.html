@@ -15,6 +15,9 @@
 </head>
 
 <body>
+    <!-- Demo Banner -->
+    <div class="demo-banner" id="demoBanner">🎭 Demo-Modus — Fiktive Daten zu Präsentationszwecken</div>
+
     <!-- Header -->
     <header class="header" id="header">
         <div class="header-left">
@@ -47,6 +50,10 @@
                 title="Farbschema wechseln">🌙</button>
             <button class="btn-currency" id="currencyToggle" onclick="toggleCurrency()"
                 title="Währung wechseln">EUR</button>
+            <button class="btn-refresh btn-demo" id="btnDemo" onclick="toggleDemo()"
+                title="Demo-Portfolio mit fiktiven Daten laden">
+                <span class="refresh-icon">🎭</span> Demo
+            </button>
             <button class="btn-refresh btn-parqet" id="btnUpdateParqet" onclick="updateParqet()"
                 title="Parqet-Positionen + aktuelle Kurse laden (~10s)">
                 <span class="refresh-icon">🔄</span> Update Parqet

@@ -21,6 +21,7 @@ FinanzBro/
 │   ├── refresh.py          # POST /api/refresh + GET /api/refresh/status
 │   ├── analysis.py         # POST /api/analysis/run, GET /api/analysis/latest
 │   ├── analytics.py        # Dividenden, Risiko, Korrelation, Attribution
+│   ├── demo.py             # POST /api/demo/activate|deactivate, GET /status
 │   ├── parqet_oauth.py     # GET /api/parqet/authorize + /callback (OAuth2 PKCE)
 │   ├── streaming.py        # GET /api/prices/stream (SSE)
 │   └── telegram.py         # Telegram Webhook
@@ -68,7 +69,7 @@ FinanzBro/
 │   └── auth.py             # Basic Auth Middleware (Passwortschutz)
 │
 ├── static/                 # Frontend (HTML/JS/CSS)
-└── tests/                  # 300+ pytest Tests
+└── tests/                  # 367+ pytest Tests
 ```
 
 ## Stabilität & Concurrency
@@ -117,6 +118,25 @@ sequenceDiagram
 | **State** (`portfolio_data`) | In-Memory Dict | Aktuelles Portfolio, Activities | Ja |
 
 > **Cloud Run Hinweis:** SQLite-Daten gehen bei Container-Restart verloren. Für Langzeit-Persistenz: Litestream → GCS Backup.
+
+## Demo Mode
+
+Expliziter Demo-Toggle für externe Präsentationen — unabhängig von API-Keys.
+
+| Endpoint | Funktion |
+|----------|----------|
+| `POST /api/demo/activate` | Baut Demo-Portfolio (12 Positionen) aus statischen Daten |
+| `POST /api/demo/deactivate` | Löscht Demo-Daten, startet echten Refresh |
+| `GET /api/demo/status` | Gibt Demo-Status zurück |
+
+- **Kein API-Call** nötig — alle Daten aus `fetchers/demo_data.py`
+- **Komplettes Portfolio**: Fundamentals, Analysten, Technical, Scores, Rebalancing, Tech Picks
+- **Frontend**: 🎭 Demo-Button im Header, Banner, Badge
+- **History**: Synthetische 6-Monats-Verlaufsdaten
+
+### Startup Port-Cleanup
+
+`_kill_port_occupants()` in `main.py` beendet automatisch alte Server-Instanzen auf dem konfigurierten Port vor dem Start. Verhindert Whitescreen durch Zombie-Prozesse.
 
 ## AI-Architektur (Vertex AI)
 

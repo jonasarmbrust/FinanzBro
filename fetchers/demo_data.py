@@ -123,3 +123,59 @@ def get_demo_fear_greed() -> FearGreedData:
     """Demo Fear & Greed Index."""
     return FearGreedData(value=62, label="Greed", source="Demo")
 
+
+def get_demo_technical_indicators() -> dict[str, "TechnicalIndicators"]:
+    """Demo-Technische Indikatoren für alle Demo-Positionen."""
+    from models import TechnicalIndicators
+    return {
+        "AAPL": TechnicalIndicators(rsi_14=58.3, sma_50=172.40, sma_200=165.80, price_vs_sma50=3.7, sma_cross="golden", momentum_30d=4.2, momentum_90d=8.5, momentum_180d=12.1, signal="Bullish"),
+        "MSFT": TechnicalIndicators(rsi_14=62.1, sma_50=405.20, sma_200=378.50, price_vs_sma50=2.5, sma_cross="golden", momentum_30d=3.8, momentum_90d=10.2, momentum_180d=15.3, signal="Bullish"),
+        "NVDA": TechnicalIndicators(rsi_14=71.5, sma_50=820.00, sma_200=650.00, price_vs_sma50=6.8, sma_cross="golden", momentum_30d=8.5, momentum_90d=25.4, momentum_180d=45.2, signal="Bullish"),
+        "GOOGL": TechnicalIndicators(rsi_14=55.8, sma_50=162.30, sma_200=148.70, price_vs_sma50=3.4, sma_cross="golden", momentum_30d=2.1, momentum_90d=7.8, momentum_180d=14.5, signal="Bullish"),
+        "AMZN": TechnicalIndicators(rsi_14=60.4, sma_50=188.50, sma_200=172.30, price_vs_sma50=3.8, sma_cross="golden", momentum_30d=5.2, momentum_90d=12.3, momentum_180d=18.7, signal="Bullish"),
+        "META": TechnicalIndicators(rsi_14=64.7, sma_50=485.00, sma_200=420.50, price_vs_sma50=4.3, sma_cross="golden", momentum_30d=6.1, momentum_90d=15.8, momentum_180d=28.4, signal="Bullish"),
+        "TSLA": TechnicalIndicators(rsi_14=42.3, sma_50=195.80, sma_200=210.50, price_vs_sma50=-8.8, sma_cross="death", momentum_30d=-5.2, momentum_90d=-12.1, momentum_180d=-8.5, signal="Bearish"),
+        "ASML": TechnicalIndicators(rsi_14=57.2, sma_50=880.00, sma_200=820.00, price_vs_sma50=3.4, sma_cross="golden", momentum_30d=3.5, momentum_90d=9.2, momentum_180d=16.8, signal="Bullish"),
+        "SAP": TechnicalIndicators(rsi_14=61.8, sma_50=190.20, sma_200=172.50, price_vs_sma50=4.3, sma_cross="golden", momentum_30d=4.8, momentum_90d=11.5, momentum_180d=20.3, signal="Bullish"),
+        "AVGO": TechnicalIndicators(rsi_14=66.5, sma_50=1580.00, sma_200=1350.00, price_vs_sma50=6.4, sma_cross="golden", momentum_30d=7.2, momentum_90d=18.5, momentum_180d=32.1, signal="Bullish"),
+        "CRM": TechnicalIndicators(rsi_14=48.5, sma_50=305.00, sma_200=280.00, price_vs_sma50=2.4, sma_cross="golden", momentum_30d=1.5, momentum_90d=5.8, momentum_180d=10.2, signal="Neutral"),
+        "AMD": TechnicalIndicators(rsi_14=53.2, sma_50=158.00, sma_200=142.50, price_vs_sma50=6.8, sma_cross="golden", momentum_30d=3.2, momentum_90d=14.5, momentum_180d=22.8, signal="Bullish"),
+    }
+
+
+def get_demo_portfolio_history(days: int = 180) -> list[dict]:
+    """Generiert synthetische Portfolio-Verlaufsdaten für den Demo-Modus.
+
+    Simuliert ein realistisch wachsendes Portfolio mit:
+    - Steigendem investiertem Kapital (monatliche Einzahlungen)
+    - Marktschwankungen (±2% täglich)
+    - Insgesamt positivem Trend
+    """
+    import random
+    from datetime import datetime, timedelta
+
+    random.seed(42)  # Reproduzierbar
+    data = []
+    invested = 18000.0  # Startwert investiertes Kapital
+    value = 20500.0     # Startwert Portfoliowert
+
+    for i in range(days):
+        date = (datetime.now() - timedelta(days=days - i)).strftime("%Y-%m-%d")
+
+        # Monatliche Einzahlung (~1500 EUR)
+        if i > 0 and i % 30 == 0:
+            invested += random.uniform(1200, 1800)
+
+        # Tägliche Marktschwankung
+        daily_return = random.gauss(0.0004, 0.012)  # Leicht positiver Bias
+        value = value * (1 + daily_return)
+
+        # Invested wächst langsamer als der Wert
+        data.append({
+            "date": date,
+            "total_value": round(value, 2),
+            "invested_capital": round(invested, 2),
+        })
+
+    return data
+
