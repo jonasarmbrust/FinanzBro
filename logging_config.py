@@ -55,10 +55,13 @@ def setup_logging(environment: str = "development"):
         ],
     )
 
-    # Unicode-safe Stream: auf Windows cp1252 würden Emojis crashen
-    # → 'replace' encoding-errors statt UnicodeEncodeError
-    stream = open(sys.stdout.fileno(), mode='w', encoding='utf-8',
-                  errors='replace', closefd=False)
+    # Cloud Run: stderr verwenden (wird von Cloud Logging erfasst)
+    # Development auf Windows: stdout mit UTF-8 encoding
+    if is_prod:
+        stream = sys.stderr
+    else:
+        stream = open(sys.stdout.fileno(), mode='w', encoding='utf-8',
+                      errors='replace', closefd=False)
 
     handler = logging.StreamHandler(stream)
     handler.setFormatter(formatter)
