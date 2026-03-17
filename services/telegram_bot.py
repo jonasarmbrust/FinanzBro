@@ -922,8 +922,8 @@ async def _process_voice_with_gemini(audio_bytes: bytes, caption: str = "") -> s
     """Verarbeitet Audio in 2 Stufen:
 
     1. Gemini Flash transkribiert/versteht das Audio
-    2. Das Transkript wird als Text an den bestehenden Chat-Handler weitergeleitet
-       (der bereits Function Calling + Search Grounding hat)
+    2. Das Transkript wird über den gleichen Gemini-Chat-Flow verarbeitet
+       wie _cmd_chat (get_client + get_grounded_config + Portfolio-Kontext)
 
     Args:
         audio_bytes: OGG-Audio-Datei als Bytes
@@ -932,12 +932,12 @@ async def _process_voice_with_gemini(audio_bytes: bytes, caption: str = "") -> s
     Returns:
         KI-Antwort als Text
     """
-    from services.vertex_ai import get_client
+    from services.vertex_ai import get_client, get_grounded_config
     from google.genai.types import Part, Content
 
     client = get_client()
 
-    # Schritt 1: Audio verstehen mit Flash (schnell + günstig)
+    # ── Schritt 1: Audio transkribieren mit Flash ──
     audio_part = Part.from_bytes(data=audio_bytes, mime_type="audio/ogg")
     instruction = Part(text=(
         "Höre diese Sprachnachricht an und gib den Inhalt als Text wieder. "
@@ -952,28 +952,41 @@ async def _process_voice_with_gemini(audio_bytes: bytes, caption: str = "") -> s
 
     transcript = transcript_response.text.strip() if transcript_response.text else ""
     if not transcript:
-        return "❌ Sprachnachricht konnte nicht verstanden werden."
+        return "Sprachnachricht konnte nicht verstanden werden."
 
     logger.info(f"🎙️ Voice transkribiert: {transcript[:100]}...")
 
-    # Schritt 2: Transkript + Caption als Text-Query verarbeiten
-    # Nutzt den bestehenden Chat-Handler mit Function Calling + Search Grounding
-    query = transcript
+    # ── Schritt 2: Transkript als Chat verarbeiten (wie _cmd_chat) ──
+    portfolio_context = _get_portfolio_context()
+
+    question = transcript
     if caption:
-        query = f"{caption}: {transcript}"
+        question = f"{caption}: {transcript}"
 
-    # Prefix damit die KI weiß, dass es eine Sprachnachricht war
-    voice_query = f"[Sprachnachricht] {query}"
+    system_prompt = (
+        "Du bist FinanzBro, ein intelligenter Portfolio-Assistent. "
+        "Der User hat per Sprachnachricht eine Frage gestellt. "
+        "Antworte kurz und prägnant auf Deutsch (max 800 Zeichen). "
+        "Nutze Emojis sparsam. Sei direkt und hilfreich.\n\n"
+    )
+    if portfolio_context:
+        system_prompt += (
+            "Hier ist der aktuelle Portfolio-Status:\n"
+            f"{portfolio_context}\n\n"
+        )
 
-    from services.trade_advisor import chat_with_advisor
-    from state import portfolio_data
+    config = get_grounded_config()
 
-    summary = portfolio_data.get("summary")
-    if summary:
-        result = await chat_with_advisor(voice_query, summary)
-        return f"📝 _{transcript}_\n\n{result}"
-    else:
-        return f"📝 _{transcript}_\n\n⚠️ Keine Portfolio-Daten geladen. Bitte erst /refresh ausführen."
+    response = await client.aio.models.generate_content(
+        model="gemini-2.5-pro",
+        contents=f"{system_prompt}User-Frage (Sprachnachricht): {question}",
+        config=config,
+    )
+
+    answer = response.text.strip() if response.text else "Keine Antwort erhalten."
+
+    # Transkript + Antwort zusammenbauen
+    return f"📝 _{transcript}_\n\n{answer}"
 
 
 # ─────────────────────────────────────────────────────────────
