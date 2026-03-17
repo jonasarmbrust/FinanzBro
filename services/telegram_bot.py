@@ -29,10 +29,22 @@ async def handle_update(update: dict) -> None:
     """
     from services.telegram import send_message
 
+    # Debug: Was kommt rein?
+    update_keys = list(update.keys())
+    logger.info(f"Update keys: {update_keys}")
+
     message = update.get("message", {})
+    if not message:
+        logger.info(f"Kein 'message' im Update. Keys: {update_keys}")
+        return
+
+    msg_keys = list(message.keys())
+    logger.info(f"Message keys: {msg_keys}")
+
     chat_id = str(message.get("chat", {}).get("id", ""))
 
     if not chat_id:
+        logger.info("Keine chat_id gefunden")
         return
 
     # Nur erlaubte Chat-ID (Sicherheit)
@@ -40,15 +52,21 @@ async def handle_update(update: dict) -> None:
         logger.warning(f"Unbekannte Chat-ID: {chat_id} (erwartet: {settings.TELEGRAM_CHAT_ID})")
         return
 
-    # Voice-Nachricht? → Audio-Handler
+    logger.info(f"Chat-ID OK: {chat_id}")
+
+    # Voice-Nachricht? -> Audio-Handler
     voice = message.get("voice")
     if voice:
+        logger.info(f"Voice erkannt: {voice}")
         await _handle_voice_memo(chat_id, voice, message.get("caption", ""))
         return
 
     text = message.get("text", "").strip()
     if not text:
+        logger.info(f"Kein text und kein voice. Message keys: {msg_keys}")
         return
+
+    logger.info(f"Text-Nachricht: {text[:50]}")
 
     # Command-Router
     cmd = text.split()[0].lower()
