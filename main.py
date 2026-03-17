@@ -223,16 +223,18 @@ async def lifespan(app: FastAPI):
                 await asyncio.sleep(5)  # Warte bis Server ready
                 try:
                     import httpx
-                    # Cloud Run URL aus Umgebungsvariable (automatisch gesetzt)
                     import os
+                    # Cloud Run URL: Explizit gesetzt oder via K_SERVICE + Projekt-Nummer
                     service_url = os.getenv("CLOUD_RUN_URL", "").rstrip("/")
                     if not service_url:
-                        # Fallback: K_SERVICE ist Cloud Run Env-Var
                         k_service = os.getenv("K_SERVICE", "")
-                        k_region = os.getenv("CLOUD_RUN_REGION", "europe-west1")
-                        project = os.getenv("GOOGLE_CLOUD_PROJECT", "")
-                        if k_service:
-                            service_url = f"https://{k_service}-{project}.{k_region}.run.app"
+                        k_region = os.getenv("CLOUD_RUN_REGION", settings.GCP_LOCATION)
+                        project_number = os.getenv("GOOGLE_CLOUD_PROJECT_NUMBER", "")
+                        if k_service and project_number:
+                            service_url = f"https://{k_service}-{project_number}.{k_region}.run.app"
+                        elif k_service:
+                            # Fallback: bekannte URL-Struktur
+                            service_url = f"https://{k_service}-384210760656.{k_region}.run.app"
                     
                     if service_url:
                         secret = settings.TELEGRAM_WEBHOOK_SECRET
