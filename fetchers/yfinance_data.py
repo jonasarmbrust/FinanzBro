@@ -365,6 +365,14 @@ async def quick_price_update(tickers: list[str]) -> tuple[dict[str, float], dict
                 current = prices[ticker]
                 if prev > 0:
                     pct = ((current - prev) / prev) * 100
+                    # Sanity cap: daily changes >50% are almost always data artifacts
+                    # (stale prev_close from weekends, stock splits, currency issues)
+                    if abs(pct) > 50:
+                        logger.warning(
+                            f"[YF-SANITY] {ticker}: daily change {pct:.1f}% capped "
+                            f"(current={current}, prev_close={prev})"
+                        )
+                        continue  # Skip this ticker's daily change
                     daily_changes[ticker] = round(pct, 2)
 
         # Debug: Warum fehlen Daily Changes?

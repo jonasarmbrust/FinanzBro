@@ -30,12 +30,13 @@ document.addEventListener('DOMContentLoaded', () => {
     loadPortfolio();
     startPriceStream();
     initScrollHeader();
-    updateTabIndicator();
-    window.addEventListener('resize', updateTabIndicator);
 });
 
 async function loadPortfolio() {
-    showLoading(true);
+    // Only show skeleton on very first load (no existing data)
+    const isFirstLoad = !portfolioData;
+    if (isFirstLoad) showSkeleton(true);
+
     try {
         const res = await fetch('/api/portfolio');
         if (res.status === 503) {
@@ -49,7 +50,7 @@ async function loadPortfolio() {
     } catch (err) {
         console.error('Portfolio laden fehlgeschlagen:', err);
         setTimeout(loadPortfolio, 3000); // Retry
-        showLoading(false);
+        if (isFirstLoad) showSkeleton(false);
     }
 }
 
@@ -57,26 +58,29 @@ async function loadPortfolio() {
 function renderDashboard() {
     if (!portfolioData) return;
 
-    renderHeader();
-    renderStats();
-    renderMarketIndices();
-    renderMovers();
-    renderHeatmap();
-    renderTable();
-    renderRebalancing();
-    renderTechPicks();
-    renderAIInsight();
-    updateRebalancingBadge();
+    // Batch all DOM mutations in a single animation frame to prevent flicker
+    requestAnimationFrame(() => {
+        renderHeader();
+        renderStats();
+        renderMarketIndices();
+        renderMovers();
+        renderHeatmap();
+        renderTable();
+        renderRebalancing();
+        renderTechPicks();
+        renderAIInsight();
+        updateRebalancingBadge();
 
-    // Lazy-load Analyse tab data if visible
-    const analyseTab = document.getElementById('tab-analyse');
-    if (analyseTab && analyseTab.classList.contains('active')) {
-        renderAnalyseTab();
-    }
+        // Lazy-load Analyse tab data if visible
+        const analyseTab = document.getElementById('tab-analyse');
+        if (analyseTab && analyseTab.classList.contains('active')) {
+            renderAnalyseTab();
+        }
 
-    showSkeleton(false);
-    // Re-create Lucide icons for dynamically added content
-    if (window.lucide) lucide.createIcons();
+        showSkeleton(false);
+        // Re-create Lucide icons for dynamically added content
+        if (window.lucide) lucide.createIcons();
+    });
 }
 
 function renderHeader() {
@@ -88,17 +92,7 @@ function renderHeader() {
     // Portfolio value (converted)
     document.getElementById('totalValue').textContent = formatCurrency(toDisplay(d.total_value));
 
-    // Cash info
-    const cashStock = (d.stocks || []).find(s => s.position.ticker === 'CASH');
-    const cashEl = document.getElementById('cashInfo');
-    if (cashStock && cashEl) {
-        const cashValue = toDisplay(cashStock.position.current_price);
-        cashEl.textContent = `💵 Cash: ${formatCurrency(cashValue)}`;
-    } else if (cashEl) {
-        cashEl.textContent = '';
-    }
-
-    // P&L (Gesamt)
+    // P&L (Gesamt) — directly under portfolio value
     const pnlEl = document.getElementById('portfolioPnl');
     const pnlConverted = toDisplay(d.total_pnl);
     const sign = pnlConverted >= 0 ? '+' : '';
@@ -114,6 +108,16 @@ function renderHeader() {
     document.getElementById('dailyPnl').textContent = `${dSign}${formatCurrency(dailyEur)}`;
     document.getElementById('dailyPnlPct').textContent = `(${dSign}${dailyPct.toFixed(2)}%)`;
     dailyEl.className = `portfolio-pnl daily-change ${dailyEur >= 0 ? 'pnl-positive' : 'pnl-negative'}`;
+
+    // Cash info (after P&L)
+    const cashStock = (d.stocks || []).find(s => s.position.ticker === 'CASH');
+    const cashEl = document.getElementById('cashInfo');
+    if (cashStock && cashEl) {
+        const cashValue = toDisplay(cashStock.position.current_price);
+        cashEl.textContent = `💵 Cash: ${formatCurrency(cashValue)}`;
+    } else if (cashEl) {
+        cashEl.textContent = '';
+    }
 
     // Currency toggle
     const toggleEl = document.getElementById('currencyToggle');
@@ -290,10 +294,10 @@ function renderTable() {
         const value = toDisplay(rawValue);
         const pnl = toDisplay(rawPnl);
 
-        // Tagesänderung in EUR berechnen
         const dailyPct = pos.daily_change_pct;
+        // Daily EUR: use previous day's value = currentValue / (1 + pct/100)  =>  daily change = currentValue - previousValue
         const dailyEur = (dailyPct != null && pos.ticker !== 'CASH')
-            ? toDisplay(rawValue * dailyPct / (100 + dailyPct))
+            ? toDisplay(rawValue - rawValue / (1 + dailyPct / 100))
             : null;
         const dailyClass = dailyPct > 0 ? 'positive' : dailyPct < 0 ? 'negative' : '';
         const dailySign = dailyPct != null && dailyPct >= 0 ? '+' : '';
@@ -879,9 +883,6 @@ function switchTab(tab) {
     if (tabBtn) tabBtn.classList.add('active');
     document.getElementById(`tab-${tab}`).classList.add('active');
 
-    // Animate tab indicator
-    updateTabIndicator();
-
     // Sync bottom nav
     document.querySelectorAll('.bottom-nav-item').forEach(b => {
         b.classList.toggle('active', b.dataset.tab === tab);
@@ -1202,8 +1203,6 @@ function showSkeleton(show) {
     if (content) content.style.display = show ? 'none' : 'block';
 }
 
-// Legacy compatibility
-function showLoading(show) { showSkeleton(show); }
 
 // ==================== Live Price Stream (SSE) ====================
 function startPriceStream() {
@@ -1447,12 +1446,8 @@ async function renderHeatmap() {
         const container = document.getElementById('heatmapContainer');
         if (!data.length) { container.innerHTML = '<div class="empty-state">Keine Daten</div>'; return; }
 
-        // Sort by weight descending for treemap
-        data.sort((a, b) => b.weight - a.weight);
-
-        // Calculate total weight for treemap proportions
-        const totalWeight = data.reduce((sum, d) => sum + d.weight, 0) || 1;
-        const containerWidth = container.offsetWidth || 800;
+        // Sort: biggest winners first, biggest losers last
+        data.sort((a, b) => b.daily_pct - a.daily_pct);
 
         container.className = 'treemap-container';
         container.innerHTML = data.map(d => {
@@ -1460,11 +1455,8 @@ async function renderHeatmap() {
             const bg = pct > 2 ? '#166534' : pct > 0.5 ? '#15803d' : pct > 0 ? 'rgba(34,197,94,0.25)'
                 : pct > -0.5 ? 'rgba(239,68,68,0.25)' : pct > -2 ? '#dc2626' : '#991b1b';
             const textColor = Math.abs(pct) > 0.5 ? '#fff' : '#94a3b8';
-            // Treemap: cell width proportional to weight, minimum 60px
-            const widthPct = Math.max((d.weight / totalWeight) * 100, 5);
-            const height = d.weight > 8 ? '90px' : d.weight > 4 ? '70px' : '55px';
             return `
-                <div class="treemap-cell" style="background:${bg};flex:${widthPct} 1 0;height:${height};" 
+                <div class="treemap-cell" style="background:${bg};" 
                      title="${d.name}\n${d.sector}\nGewicht: ${d.weight.toFixed(1)}%\nHeute: ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%\nScore: ${d.score}/100"
                      onclick="openStockDetail('${d.ticker}')">
                     <span class="treemap-ticker" style="color:${textColor}">${d.ticker}</span>

@@ -69,8 +69,44 @@ FinanzBro/
 │   └── auth.py             # Basic Auth Middleware (Passwortschutz)
 │
 ├── static/                 # Frontend (HTML/JS/CSS)
+│   ├── index.html          # Modular HTML: Header, Tabs, Slide-Over, Bottom Nav
+│   ├── app.js              # ~3100 LOC: Rendering, SSE, Theme, Toast, Heatmap
+│   └── styles.css          # ~3660 LOC: Design System, Dark/Light Mode, Glassmorphism
 └── tests/                  # 367+ pytest Tests
 ```
+
+## Frontend-Architektur
+
+### Design System (`styles.css`)
+- **Theming**: Dark-Mode (default) + Light-Mode via `body.light-mode` class, auto-detect via `prefers-color-scheme`
+- **Variables**: 20+ CSS Custom Properties (colors, shadows, radii, transitions)
+- **Light-Mode Kontrast**: Text-Farben `#0a0a0a` / `#1a1a1a` / `#3a3a3a` für volle Lesbarkeit auf weißem Hintergrund
+
+### UI-Komponenten
+
+| Komponente | Funktion |
+|------------|----------|
+| **Action Dropdown** | `⋮ Aktionen` → Parqet Update, Score Refresh, Telegram, Demo Toggle |
+| **Skeleton Loading** | Shimmer-Placeholders nur beim ersten Seitenaufruf |
+| **Toast Notifications** | Slide-in Feedback-Cards (success/error/warning/info) |
+| **Slide-Over Panel** | Rechts-Seitenleiste für Stock-Details mit 4 Tabs |
+| **Treemap Heatmap** | CSS Grid (`auto-fill, minmax(90px, 1fr)`), sortiert nach Daily % |
+| **AI Insight Widget** | Gradient-Border Card mit Portfolio-Zusammenfassung |
+| **Mobile Bottom Nav** | Feste untere Navigation bei ≤768px Viewport |
+
+### Live-Updates (ohne Flicker)
+
+```
+SSE (/api/prices/stream) → applyPriceUpdates() → Gezielte DOM-Updates
+                                                    ├── updateHeaderValues()
+                                                    └── updateTablePrices()
+
+loadPortfolio() → renderDashboard() → requestAnimationFrame() → Batch-Paint
+                   (Skeleton nur beim ersten Aufruf)
+```
+
+### Daily-Change Sanity-Cap
+`quick_price_update()` in `yfinance_data.py` verwirft Tagesänderungen >±50% als Datenartefakte (Stock-Splits, Multi-Tages-Gaps, Währungskonvertierungsfehler). Log-Warning wird ausgegeben.
 
 ## Stabilität & Concurrency
 

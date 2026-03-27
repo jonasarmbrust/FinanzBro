@@ -515,7 +515,8 @@ async def get_heatmap():
             "pnl_pct": round(pos.pnl_percent, 1),
         })
 
-    result.sort(key=lambda x: x["value"], reverse=True)
+    # Sort: biggest daily winner first, biggest loser last
+    result.sort(key=lambda x: x["daily_pct"], reverse=True)
     return result
 
 
