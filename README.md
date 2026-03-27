@@ -5,11 +5,43 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Gemini AI](https://img.shields.io/badge/Gemini_AI-2.5_Pro-4285F4.svg?logo=google&logoColor=white)](https://ai.google.dev)
 [![Cloud Run](https://img.shields.io/badge/Cloud_Run-Deployed-4285F4.svg?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
+[![Tests](https://img.shields.io/badge/Tests-368%2B-22c55e.svg)](tests/)
 
-Echtzeit-Portfolio-Dashboard mit Multi-Faktor-Scoring, Conviction-basiertem Rebalancing, AI Trade Advisor (Function Calling + Chat), Gemini Structured Output und yFinance-basiertem Stock Screener.  
-Läuft lokal und auf **Google Cloud Run** (min. 1GB RAM empfohlen).
+> **Dein Portfolio. Deine Regeln. Unterstützt durch KI.**
+
+Ein vollständiges, selbst-gehostetes Portfolio-Dashboard, das Echtzeit-Kurse, fundamentale Analyse und KI-gestützte Empfehlungen in einer modernen Web-Oberfläche vereint — mit automatischen Telegram-Reports, die dich täglich auf dem Laufenden halten.
 
 ![FinanzBro Dashboard](docs/screenshots/dashboard-overview.png)
+
+## ✨ Highlights
+
+🎯 **10-Faktor Scoring Engine** — Qualität, Bewertung, Technik, Wachstum, Analysten, Sentiment, Insider, ESG, Quantitativ + Stabilität → ein Score pro Aktie (0–100)
+
+🤖 **AI Trade Advisor** — Frage Gemini 2.5 Pro: *„Soll ich NVDA für €2.000 nachkaufen?"* → bekomme eine fundierte Analyse mit Positionsgrößen-Empfehlung, Risiko-Bewertung und Conviction-Score
+
+⚖️ **Conviction-basiertes Rebalancing** — Nicht einfach Equal-Weight, sondern gewichtete Empfehlungen basierend auf Score, Sektor-Limits (max. 35%), Beta und Analysten-Konsens
+
+📡 **Live-Streaming** — yFinance WebSocket + Server-Sent Events → Kurse aktualisieren sich in Echtzeit ohne Seiten-Reload
+
+📱 **Telegram Bot** — Tägliche AI-generierte Portfolio-Reports, Wochenrückblicke, proaktive News-Alerts und Sprach-Kommandos → dein Portfolio immer in der Tasche
+
+🔍 **Tech Radar** — Automatischer Stock Screener findet täglich neue Aktien aus dem Tech-Sektor, bewertet sie mit dem Scoring-Modell und liefert AI-generierte Zusammenfassungen
+
+📊 **Tiefe Analyse** — Sektor-Allokation, Benchmark vs. S&P 500, Korrelationsmatrix, Risk-Profil (VaR, Beta, Drawdown), Dividenden-Tracker, Earnings-Kalender, P&L Attribution
+
+🔄 **Vollautomatisch** — APScheduler übernimmt: Kurs-Updates alle 15 Min, tägliche Analyse um 16:15, wöchentlicher Digest, News-Kurator 4x täglich
+
+## 🛠️ Tech Stack
+
+| Schicht | Technologien |
+|---|---|
+| **Backend** | Python 3.12, FastAPI, Uvicorn, Pydantic, APScheduler |
+| **AI** | Google Gemini 2.5 Pro + Flash (Function Calling, Structured Output, Context Caching) |
+| **Daten** | Parqet API (OAuth2/PKCE), FMP API, yFinance, CNN Fear & Greed |
+| **Frontend** | Vanilla HTML/JS/CSS, Chart.js, SSE Streaming, Dark/Light Mode |
+| **Infrastruktur** | Docker, Google Cloud Run (Service + Job), SQLite |
+| **Bot** | Telegram Bot API (Kommandos, Spracheingabe, Inline-Buttons) |
+| **Tests** | pytest (368+ Tests, 21 Testdateien) |
 
 ## Screenshots
 
