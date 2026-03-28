@@ -2045,6 +2045,7 @@ async function submitAdvisorQuery() {
                 action: _advisorAction,
                 amount_eur: amount ? parseFloat(amount) : null,
                 extra_context: context || null,
+                lang: currentLang,
             }),
         });
         const data = await resp.json();
@@ -2279,7 +2280,7 @@ async function sendAdvisorChat() {
         const resp = await fetch('/api/advisor/chat', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ message, history: _chatHistory }),
+            body: JSON.stringify({ message, history: _chatHistory, lang: currentLang }),
         });
         const data = await resp.json();
 

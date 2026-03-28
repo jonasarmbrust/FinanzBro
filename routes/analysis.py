@@ -299,6 +299,7 @@ async def evaluate_trade_endpoint(data: dict):
     action = data.get("action", "buy")
     amount_eur = data.get("amount_eur")
     extra_context = data.get("extra_context")
+    lang = data.get("lang", "de")
 
     if amount_eur:
         try:
@@ -312,6 +313,7 @@ async def evaluate_trade_endpoint(data: dict):
         action=action,
         amount_eur=amount_eur,
         extra_context=extra_context,
+        lang=lang,
     )
     return result
 
@@ -329,11 +331,13 @@ async def advisor_chat_endpoint(data: dict):
         return {"error": "Bitte eine Nachricht eingeben."}
 
     history = data.get("history", [])
+    lang = data.get("lang", "de")
 
     from services.trade_advisor import chat_with_advisor
     result = await chat_with_advisor(
         message=message,
         history=history,
+        lang=lang,
     )
     return result
 

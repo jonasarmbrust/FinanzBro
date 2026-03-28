@@ -24,6 +24,7 @@ async def evaluate_trade(
     action: str = "buy",
     amount_eur: Optional[float] = None,
     extra_context: Optional[str] = None,
+    lang: str = "de",
 ) -> dict:
     """Evaluiert eine Trade-Entscheidung mit AI + Function Calling.
 
@@ -68,6 +69,7 @@ async def evaluate_trade(
             score_info=score_info,
             portfolio_ctx=portfolio_ctx,
             extra_context=extra_context,
+            lang=lang,
         )
         result["ticker"] = ticker
         result["action"] = action
@@ -349,7 +351,7 @@ ADVISOR_RESPONSE_SCHEMA = {
         "recommendation": {
             "type": "string",
             "enum": ["buy", "hold", "reduce", "avoid"],
-            "description": "Trade-Empfehlung",
+            "description": "Trade recommendation",
         },
         "confidence": {
             "type": "integer",
@@ -357,36 +359,36 @@ ADVISOR_RESPONSE_SCHEMA = {
         },
         "summary": {
             "type": "string",
-            "description": "1-2 Sätze Fazit auf Deutsch",
+            "description": "1-2 sentence conclusion in the language specified by the system prompt",
         },
         "bull_case": {
             "type": "string",
-            "description": "Argumente für den Trade",
+            "description": "Arguments in favor of the trade",
         },
         "bear_case": {
             "type": "string",
-            "description": "Argumente gegen den Trade",
+            "description": "Arguments against the trade",
         },
         "portfolio_fit": {
             "type": "string",
-            "description": "Wie passt der Trade zum Portfolio?",
+            "description": "How does the trade fit the portfolio?",
         },
         "sizing_advice": {
             "type": "string",
-            "description": "Empfohlene Positionsgröße",
+            "description": "Recommended position size",
         },
         "risks": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "Liste der wichtigsten Risiken",
+            "description": "List of key risks",
         },
         "timing": {
             "type": "string",
-            "description": "Timing-Einschätzung",
+            "description": "Timing assessment",
         },
         "external_analysis": {
             "type": "string",
-            "description": "Zusammenfassung externer Quellen",
+            "description": "Summary of external sources",
         },
     },
     "required": ["recommendation", "confidence", "summary", "bull_case",
@@ -405,6 +407,7 @@ async def _call_gemini_with_tools(
     score_info: dict,
     portfolio_ctx: dict,
     extra_context: Optional[str],
+    lang: str = "de",
 ) -> dict:
     """Ruft Gemini 2.5 Pro mit Function Calling + Structured Output auf.
 
@@ -419,28 +422,55 @@ async def _call_gemini_with_tools(
 
     client = get_client()
 
-    # System-Prompt
-    action_de = {"buy": "Kauf", "sell": "Verkauf", "increase": "Aufstocken"}.get(action, action)
-    system_prompt = (
-        "Du bist ein erfahrener Portfolio-Advisor. Der User möchte einen Trade evaluieren. "
-        "Du hast Zugriff auf Tools um Portfolio-Daten und Aktien-Scores abzurufen. "
-        "Du kannst auch externe URLs lesen mit dem fetch_url_content Tool — "
-        "nutze es wenn der User Links teilt oder wenn du Artikel lesen möchtest. "
-        "Antworte auf Deutsch."
-    )
+    # System-Prompt (language-aware)
+    action_labels = {
+        "de": {"buy": "Kauf", "sell": "Verkauf", "increase": "Aufstocken"},
+        "en": {"buy": "Buy", "sell": "Sell", "increase": "Add to Position"},
+    }
+    action_label = action_labels.get(lang, action_labels["de"]).get(action, action)
+
+    if lang == "en":
+        system_prompt = (
+            "You are an experienced portfolio advisor. The user wants to evaluate a trade. "
+            "You have access to tools to retrieve portfolio data and stock scores. "
+            "You can also read external URLs with the fetch_url_content tool — "
+            "use it when the user shares links or when you want to read articles. "
+            "Respond in English."
+        )
+    else:
+        system_prompt = (
+            "Du bist ein erfahrener Portfolio-Advisor. Der User möchte einen Trade evaluieren. "
+            "Du hast Zugriff auf Tools um Portfolio-Daten und Aktien-Scores abzurufen. "
+            "Du kannst auch externe URLs lesen mit dem fetch_url_content Tool — "
+            "nutze es wenn der User Links teilt oder wenn du Artikel lesen möchtest. "
+            "Antworte auf Deutsch."
+        )
 
     # User-Prompt
-    user_prompt_parts = [
-        f"Evaluiere folgenden Trade: {action_de.upper()} von {ticker}",
-    ]
-    if amount_eur:
-        user_prompt_parts.append(f"Geplanter Betrag: {amount_eur:,.0f} EUR")
-    if extra_context:
-        user_prompt_parts.append(f"\nExterne Quellen vom User:\n{extra_context.strip()[:3000]}")
-    user_prompt_parts.append(
-        "\nNutze die verfügbaren Tools um den Score und das Portfolio abzufragen, "
-        "dann erstelle eine professionelle Trade-Bewertung."
-    )
+    if lang == "en":
+        user_prompt_parts = [
+            f"Evaluate the following trade: {action_label.upper()} {ticker}",
+        ]
+        if amount_eur:
+            user_prompt_parts.append(f"Planned amount: {amount_eur:,.0f} EUR")
+        if extra_context:
+            user_prompt_parts.append(f"\nExternal sources from user:\n{extra_context.strip()[:3000]}")
+        user_prompt_parts.append(
+            "\nUse the available tools to query the score and portfolio, "
+            "then create a professional trade evaluation."
+        )
+    else:
+        user_prompt_parts = [
+            f"Evaluiere folgenden Trade: {action_label.upper()} von {ticker}",
+        ]
+        if amount_eur:
+            user_prompt_parts.append(f"Geplanter Betrag: {amount_eur:,.0f} EUR")
+        if extra_context:
+            user_prompt_parts.append(f"\nExterne Quellen vom User:\n{extra_context.strip()[:3000]}")
+        user_prompt_parts.append(
+            "\nNutze die verfügbaren Tools um den Score und das Portfolio abzufragen, "
+            "dann erstelle eine professionelle Trade-Bewertung."
+        )
     user_prompt = "\n".join(user_prompt_parts)
 
     # Tool-Definitionen
@@ -578,6 +608,7 @@ def _parse_ai_response(raw: str) -> dict:
 async def chat_with_advisor(
     message: str,
     history: list[dict] | None = None,
+    lang: str = "de",
 ) -> dict:
     """Freie Konversation mit dem AI Advisor.
 
@@ -625,6 +656,7 @@ async def chat_with_advisor(
             portfolio_ctx=portfolio_ctx,
             score_info=score_info,
             summary=summary,
+            lang=lang,
         )
         # History aktualisieren
         updated_history = list(history or [])
@@ -653,6 +685,7 @@ async def _call_gemini_chat(
     portfolio_ctx: dict,
     score_info: dict,
     summary,
+    lang: str = "de",
 ) -> str:
     """Gemini-Call für freie Chat-Konversation mit Function Calling."""
     import asyncio
@@ -674,24 +707,44 @@ async def _call_gemini_chat(
         f"{k} {v}%" for k, v in portfolio_ctx.get("sector_distribution", {}).items()
     )
 
-    system_prompt = (
-        "Du bist ein erfahrener Portfolio-Berater und Finanzanalyst. "
-        "Der User hat ein persönliches Aktienportfolio und möchte mit dir darüber diskutieren.\n\n"
-        f"PORTFOLIO-ÜBERSICHT:\n"
-        f"  Gesamtwert: {portfolio_ctx.get('total_value', 0):,.0f} EUR\n"
-        f"  Positionen: {portfolio_ctx.get('num_positions', 0)}\n"
-        f"  Gesamt P&L: {portfolio_ctx.get('total_pnl_pct', 0):.1f}%\n"
-        f"  Fear & Greed: {portfolio_ctx.get('fear_greed', '?')} ({portfolio_ctx.get('fear_greed_label', '?')})\n"
-        f"  Sektor-Verteilung: {sectors_text}\n\n"
-        f"POSITIONEN:\n{positions_text}\n"
-        "REGELN:\n"
-        "- Antworte auf Deutsch, klar und direkt\n"
-        "- Nutze die verfügbaren Tools um aktuelle Daten abzurufen wenn nötig\n"
-        "- Wenn der User URLs teilt, nutze das fetch_url_content Tool um den Inhalt zu lesen\n"
-        "- Beziehe dich auf das Portfolio wenn relevant\n"
-        "- Sei ehrlich über Unsicherheiten und Risiken\n"
-        "- Formatiere mit Markdown (fett, Listen, Überschriften)\n"
-    )
+    if lang == "en":
+        system_prompt = (
+            "You are an experienced portfolio advisor and financial analyst. "
+            "The user has a personal stock portfolio and wants to discuss it with you.\n\n"
+            f"PORTFOLIO OVERVIEW:\n"
+            f"  Total Value: {portfolio_ctx.get('total_value', 0):,.0f} EUR\n"
+            f"  Positions: {portfolio_ctx.get('num_positions', 0)}\n"
+            f"  Total P&L: {portfolio_ctx.get('total_pnl_pct', 0):.1f}%\n"
+            f"  Fear & Greed: {portfolio_ctx.get('fear_greed', '?')} ({portfolio_ctx.get('fear_greed_label', '?')})\n"
+            f"  Sector Distribution: {sectors_text}\n\n"
+            f"POSITIONS:\n{positions_text}\n"
+            "RULES:\n"
+            "- Respond in English, clearly and directly\n"
+            "- Use available tools to retrieve current data when needed\n"
+            "- If the user shares URLs, use the fetch_url_content tool to read the content\n"
+            "- Reference the portfolio when relevant\n"
+            "- Be honest about uncertainties and risks\n"
+            "- Format with Markdown (bold, lists, headings)\n"
+        )
+    else:
+        system_prompt = (
+            "Du bist ein erfahrener Portfolio-Berater und Finanzanalyst. "
+            "Der User hat ein persönliches Aktienportfolio und möchte mit dir darüber diskutieren.\n\n"
+            f"PORTFOLIO-ÜBERSICHT:\n"
+            f"  Gesamtwert: {portfolio_ctx.get('total_value', 0):,.0f} EUR\n"
+            f"  Positionen: {portfolio_ctx.get('num_positions', 0)}\n"
+            f"  Gesamt P&L: {portfolio_ctx.get('total_pnl_pct', 0):.1f}%\n"
+            f"  Fear & Greed: {portfolio_ctx.get('fear_greed', '?')} ({portfolio_ctx.get('fear_greed_label', '?')})\n"
+            f"  Sektor-Verteilung: {sectors_text}\n\n"
+            f"POSITIONEN:\n{positions_text}\n"
+            "REGELN:\n"
+            "- Antworte auf Deutsch, klar und direkt\n"
+            "- Nutze die verfügbaren Tools um aktuelle Daten abzurufen wenn nötig\n"
+            "- Wenn der User URLs teilt, nutze das fetch_url_content Tool um den Inhalt zu lesen\n"
+            "- Beziehe dich auf das Portfolio wenn relevant\n"
+            "- Sei ehrlich über Unsicherheiten und Risiken\n"
+            "- Formatiere mit Markdown (fett, Listen, Überschriften)\n"
+        )
 
     # Tool-Definitionen (gleiche wie bei evaluate)
     tool_declarations = [
