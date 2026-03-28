@@ -264,7 +264,7 @@ async def upload_csv_portfolio(data: dict):
     Expects JSON body: {"positions": [{"ticker": "AAPL", "shares": 10, "buy_price": 150, ...}, ...]}
     """
     from fetchers.csv_reader import parse_csv_json, csv_positions_to_portfolio_format
-    from services.portfolio_builder import build_portfolio_from_positions
+    from services.portfolio_builder import build_portfolio_from_csv
 
     positions_raw = data.get("positions", [])
     if not positions_raw:
@@ -275,22 +275,24 @@ async def upload_csv_portfolio(data: dict):
     if not positions:
         return JSONResponse({"error": "No valid positions found in CSV"}, status_code=400)
 
-    # Fetch live prices from yFinance
+    # Fetch live prices + daily changes from yFinance
     tickers = [p['ticker'] for p in positions]
     prices = {}
+    daily_changes = {}
     try:
-        from fetchers.yfinance_data import fetch_batch_prices
-        prices = await fetch_batch_prices(tickers)
+        from fetchers.yfinance_data import quick_price_update
+        prices, daily_changes = await quick_price_update(tickers)
     except Exception as e:
         logger.warning(f"Could not fetch live prices for CSV import: {e}")
 
     # Convert to portfolio format
     portfolio_positions = csv_positions_to_portfolio_format(positions, prices)
 
-    # Build portfolio summary (same as Parqet flow)
+    # Build portfolio summary (same pipeline as Parqet)
     try:
-        await build_portfolio_from_positions(portfolio_positions, source="csv")
-        return {"status": "ok", "positions_imported": len(portfolio_positions)}
+        result = await build_portfolio_from_csv(portfolio_positions, daily_changes)
+        return {"status": "ok", "positions_imported": len(portfolio_positions), **result}
     except Exception as e:
         logger.error(f"CSV import failed: {e}")
         return JSONResponse({"error": f"Import failed: {str(e)}"}, status_code=500)
+

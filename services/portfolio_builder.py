@@ -362,3 +362,114 @@ def _apply_metadata_only(pos, name_map, converter, prev_stocks_map):
             pos.sector = prev.position.sector
         if prev.position.name and (not pos.name or pos.name == pos.ticker):
             pos.name = prev.position.name
+
+
+async def build_portfolio_from_csv(
+    csv_positions: list[dict],
+    daily_changes: dict[str, float] | None = None,
+) -> dict:
+    """Baut ein PortfolioSummary aus CSV-importierten Positionen.
+
+    Funktioniert identisch zum Parqet-Pfad, nur die Datenquelle ist anders.
+    Die Positionen werden in PortfolioPosition-Objekte konvertiert,
+    ein PortfolioSummary erstellt und in portfolio_data gespeichert.
+
+    Args:
+        csv_positions: Liste von Dicts aus csv_positions_to_portfolio_format()
+        daily_changes: Dict {ticker: daily_change_pct} aus yFinance
+
+    Returns:
+        Dict mit Status-Infos (total_value, positions, etc.)
+    """
+    if not csv_positions:
+        raise ValueError("No positions to import")
+
+    daily_changes = daily_changes or {}
+
+    # Wechselkurse laden
+    converter = await CurrencyConverter.create()
+    eur_usd_rate = converter.rates.eur_usd
+
+    # Merge mit vorherigen Scores (falls existierendes Portfolio)
+    prev_summary = portfolio_data.get("summary")
+    prev_stocks_map = {}
+    if prev_summary and prev_summary.stocks:
+        prev_stocks_map = {ps.position.ticker: ps for ps in prev_summary.stocks}
+
+    stocks = []
+    for pos_dict in csv_positions:
+        ticker = pos_dict["ticker"]
+        currency = pos_dict.get("currency", "USD")
+
+        # Preis in EUR konvertieren
+        raw_price = pos_dict["currentPrice"]
+        price_eur = converter.to_eur(raw_price, ticker) if currency != "EUR" else raw_price
+        buy_price_eur = converter.to_eur(pos_dict["buyPrice"], ticker) if currency != "EUR" else pos_dict["buyPrice"]
+
+        position = PortfolioPosition(
+            ticker=ticker,
+            name=pos_dict.get("name", ticker),
+            shares=pos_dict["shares"],
+            avg_cost=buy_price_eur,
+            current_price=price_eur,
+            currency="EUR",
+            price_currency="EUR",
+            sector=pos_dict.get("sector") or "Unknown",
+            daily_change_pct=daily_changes.get(ticker),
+        )
+
+        # Merge vorherige Analyse-Daten (Scores, Fundamentals, etc.)
+        prev = prev_stocks_map.get(ticker)
+        if prev:
+            stocks.append(StockFullData(
+                position=position,
+                score=prev.score,
+                fundamentals=prev.fundamentals,
+                analyst=prev.analyst,
+                technical=prev.technical,
+                yfinance=prev.yfinance,
+                fmp_rating=prev.fmp_rating,
+                data_sources=prev.data_sources,
+                dividend=prev.dividend,
+            ))
+        else:
+            stocks.append(StockFullData(position=position))
+
+    # Gesamtwerte berechnen
+    t = calc_portfolio_totals(stocks)
+
+    # PortfolioSummary erstellen
+    prev_scores = [s.score for s in stocks if s.score]
+    summary = PortfolioSummary(
+        total_value=t["total_value"],
+        total_cost=t["total_cost"],
+        total_pnl=t["total_pnl"],
+        total_pnl_percent=t["total_pnl_pct"],
+        num_positions=len(stocks),
+        stocks=stocks,
+        scores=prev_scores,
+        rebalancing=prev_summary.rebalancing if prev_summary else None,
+        tech_picks=prev_summary.tech_picks if prev_summary else [],
+        fear_greed=prev_summary.fear_greed if prev_summary else None,
+        eur_usd_rate=eur_usd_rate,
+        display_currency="EUR",
+        daily_total_change=t["daily_total_eur"],
+        daily_total_change_pct=t["daily_total_pct"],
+    )
+
+    # In globalen State speichern → Dashboard zeigt CSV-Daten
+    portfolio_data["summary"] = summary
+    portfolio_data["last_refresh"] = datetime.now(tz=TZ_BERLIN)
+    portfolio_data["source"] = "csv"
+
+    logger.info(
+        f"📄 CSV-Import abgeschlossen: {len(stocks)} Positionen, "
+        f"Gesamt: {t['total_value']:,.2f} EUR"
+    )
+
+    return {
+        "total_value": t["total_value"],
+        "num_positions": len(stocks),
+        "eur_usd_rate": eur_usd_rate,
+    }
+

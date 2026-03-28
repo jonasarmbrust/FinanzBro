@@ -343,11 +343,15 @@ if __name__ == "__main__":
     import uvicorn
 
     def _kill_port_occupants(port: int) -> None:
-        """Killt alle Prozesse die den Port bereits belegen.
+        """Killt alle Prozesse die den Port bereits belegen (inkl. Kind-Prozesse).
 
         Verhindert Whitescreen durch Zombie-Server-Instanzen die sich
         über die Zeit ansammeln (z.B. durch Ctrl+C das nicht sauber
-        terminiert, oder IDE-Restarts).
+        terminiert, IDE-Restarts, oder Agent-Sessions).
+
+        Verwendet taskkill /T um den gesamten Prozessbaum zu killen,
+        da der WatchFiles-Reloader Kind-Prozesse spawnt die sonst
+        als Zombies übrig bleiben.
         """
         my_pid = os.getpid()
         killed = []
@@ -358,24 +362,19 @@ if __name__ == "__main__":
                 capture_output=True, text=True, timeout=5,
             )
             for line in result.stdout.splitlines():
-                # Prüfe ob diese Zeile unseren Port als LISTENING betrifft
-                # Format: "  TCP    0.0.0.0:8000  ...  ABHÖREN  PID"
                 parts = line.split()
                 if len(parts) < 4:
                     continue
                 local_addr = parts[1] if len(parts) >= 2 else ""
-                # Exakter Port-Match (nicht :80001 statt :8000)
                 if not local_addr.endswith(f":{port}"):
                     continue
-                # Nur LISTENING/ABHÖREN Status
-                if not any(s in line for s in ("LISTEN", "ABHÖR")):
-                    continue
+                # Alle Verbindungsstatus (LISTENING, ESTABLISHED, TIME_WAIT)
                 try:
                     pid = int(parts[-1])
-                    if pid != my_pid and pid > 0:
-                        # Windows: taskkill /F ist zuverlässiger als os.kill
+                    if pid != my_pid and pid > 0 and pid not in killed:
+                        # /T = Tree-Kill: Killt den Prozess UND alle Kinder
                         subprocess.run(
-                            ["taskkill", "/F", "/PID", str(pid)],
+                            ["taskkill", "/F", "/T", "/PID", str(pid)],
                             capture_output=True, timeout=3,
                         )
                         killed.append(pid)
@@ -386,8 +385,8 @@ if __name__ == "__main__":
 
         if killed:
             import time
-            time.sleep(0.5)
-            print(f"\033[1m🧹 {len(killed)} alte Server-Instanzen auf Port {port} beendet: {killed}\033[0m")
+            time.sleep(1)  # Etwas länger warten für Tree-Kill
+            print(f"\033[1m🧹 {len(killed)} alte Server-Prozesse auf Port {port} beendet (inkl. Kinder): {killed}\033[0m")
 
     is_dev = settings.ENVIRONMENT == "development"
 
