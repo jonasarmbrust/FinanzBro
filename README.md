@@ -1,4 +1,4 @@
-# 📊 FinanzBro – Intelligentes Portfolio Dashboard
+# 📊 FinanzBro – Intelligent Portfolio Dashboard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](https://python.org)
@@ -8,41 +8,41 @@
 [![Tests](https://img.shields.io/badge/Tests-368%2B-22c55e.svg)](tests/)
 [![CI/CD](https://github.com/jonasarmbrust/FinanzBro/actions/workflows/deploy.yml/badge.svg)](https://github.com/jonasarmbrust/FinanzBro/actions)
 
-> **Dein Portfolio. Deine Regeln. Unterstützt durch KI.**
+> **Your portfolio. Your rules. Powered by AI.**
 
-Ein vollständiges Portfolio-Dashboard, das Echtzeit-Kurse, fundamentale Analyse und KI-gestützte Empfehlungen in einer modernen Web-Oberfläche vereint. Läuft lokal oder auf **Google Cloud Run** — und agiert autonom: proaktive Telegram-Alerts bei marktrelevanten Ereignissen, tägliche AI-Reports und ein Telegram Bot, der auf Sprach- und Textnachrichten antwortet.
+A full-stack portfolio dashboard combining real-time market data, fundamental analysis, and AI-driven recommendations in a modern web interface. Runs locally or on **Google Cloud Run** — and acts autonomously: proactive Telegram alerts on market-relevant events, daily AI reports, and a Telegram bot that responds to voice and text messages.
 
 ![FinanzBro Dashboard](docs/screenshots/dashboard-overview.png)
 
 ## ✨ Highlights
 
-🎯 **10-Faktor Scoring Engine** — Qualität, Bewertung, Technik, Wachstum, Analysten, Sentiment, Insider, ESG, Quantitativ + Stabilität → ein Score pro Aktie (0–100)
+🎯 **10-Factor Scoring Engine** — Quality, Valuation, Technical, Growth, Analysts, Sentiment, Insider, ESG, Quantitative + Stability → one composite score per stock (0–100)
 
-🤖 **AI Trade Advisor** — Frage Gemini 2.5 Pro: *„Soll ich NVDA für €2.000 nachkaufen?"* → bekomme eine fundierte Analyse mit Positionsgrößen-Empfehlung, Risiko-Bewertung und Conviction-Score
+🤖 **AI Trade Advisor** — Ask Gemini 2.5 Pro: *"Should I buy NVDA for €2,000?"* → get a detailed analysis with position sizing, risk assessment, and conviction score
 
-⚖️ **Conviction-basiertes Rebalancing** — Nicht einfach Equal-Weight, sondern gewichtete Empfehlungen basierend auf Score, Sektor-Limits (max. 35%), Beta und Analysten-Konsens
+⚖️ **Conviction-Based Rebalancing** — Not simple equal-weight, but weighted recommendations based on score, sector limits (max 35%), beta, and analyst consensus
 
-📡 **Live-Streaming** — yFinance WebSocket + Server-Sent Events → Kurse aktualisieren sich in Echtzeit ohne Seiten-Reload
+📡 **Live Streaming** — yFinance WebSocket + Server-Sent Events → prices update in real-time without page reload
 
-📱 **Telegram Bot** — Tägliche AI-generierte Portfolio-Reports, Wochenrückblicke, proaktive News-Alerts und Sprach-Kommandos → dein Portfolio immer in der Tasche
+📱 **Telegram Bot** — Daily AI-generated portfolio reports, weekly digests, proactive news alerts, and voice commands → your portfolio always in your pocket
 
-🔍 **Tech Radar** — Automatischer Stock Screener findet täglich neue Aktien aus dem Tech-Sektor, bewertet sie mit dem Scoring-Modell und liefert AI-generierte Zusammenfassungen
+🔍 **Tech Radar** — Automated stock screener discovers new tech stocks daily, scores them with the multi-factor model, and delivers AI-generated summaries
 
-📊 **Tiefe Analyse** — Sektor-Allokation, Benchmark vs. S&P 500, Korrelationsmatrix, Risk-Profil (VaR, Beta, Drawdown), Dividenden-Tracker, Earnings-Kalender, P&L Attribution
+📊 **Deep Analytics** — Sector allocation, benchmark vs. S&P 500, correlation matrix, risk profile (VaR, beta, drawdown), dividend tracker, earnings calendar, P&L attribution
 
-🔄 **Vollautomatisch** — APScheduler übernimmt: Kurs-Updates alle 15 Min, tägliche Analyse um 16:15, wöchentlicher Digest, News-Kurator 4x täglich
+🔄 **Fully Autonomous** — APScheduler handles it all: price updates every 15 min, daily analysis at 16:15, weekly digest, news curator 4x daily
 
 ## 🛠️ Tech Stack
 
-| Schicht | Technologien |
+| Layer | Technologies |
 |---|---|
 | **Backend** | Python 3.12, FastAPI, Uvicorn, Pydantic, APScheduler |
 | **AI** | Google Gemini 2.5 Pro + Flash (Function Calling, Structured Output, Context Caching) |
-| **Daten** | Parqet API (OAuth2/PKCE), FMP API, yFinance, CNN Fear & Greed |
+| **Data** | Parqet API (OAuth2/PKCE), FMP API, yFinance, CNN Fear & Greed |
 | **Frontend** | Vanilla HTML/JS/CSS, Chart.js, SSE Streaming, Dark/Light Mode |
-| **Infrastruktur** | Docker, Google Cloud Run (Service + Job), SQLite |
-| **Bot** | Telegram Bot API (Kommandos, Spracheingabe, Inline-Buttons) |
-| **Tests** | pytest (368+ Tests, 21 Testdateien) |
+| **Infrastructure** | Docker, Google Cloud Run (Service + Job), SQLite |
+| **Bot** | Telegram Bot API (Commands, Voice Input, Inline Buttons) |
+| **Tests** | pytest (368+ tests, 21 test files) |
 
 ## 💡 Why I Built This
 
@@ -54,15 +54,15 @@ The answer turned out to be *yes* — and the journey taught me more about AI's 
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/portfolio-table.png" alt="Portfolio" width="500"/><br/><em>Portfolio-Positionen mit Scoring</em></td>
-    <td><img src="docs/screenshots/stock-detail.png" alt="Stock Detail" width="250"/><br/><em>Aktien-Detail mit Score-Breakdown</em></td>
+    <td><img src="docs/screenshots/portfolio-table.png" alt="Portfolio" width="500"/><br/><em>Portfolio positions with scoring</em></td>
+    <td><img src="docs/screenshots/stock-detail.png" alt="Stock Detail" width="250"/><br/><em>Stock detail with score breakdown</em></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/analyse-tab.png" alt="Analyse" width="500"/><br/><em>Analyse: Sektoren, Risiko, Benchmark, Dividenden</em></td>
-    <td><img src="docs/screenshots/rebalancing.png" alt="Rebalancing" width="500"/><br/><em>Conviction-basiertes Rebalancing</em></td>
+    <td><img src="docs/screenshots/analyse-tab.png" alt="Analysis" width="500"/><br/><em>Analysis: sectors, risk, benchmark, dividends</em></td>
+    <td><img src="docs/screenshots/rebalancing.png" alt="Rebalancing" width="500"/><br/><em>Conviction-based rebalancing</em></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/tech-picks.png" alt="Tech Picks" width="500"/><br/><em>AI-gestützte Tech-Empfehlungen</em></td>
+    <td><img src="docs/screenshots/tech-picks.png" alt="Tech Picks" width="500"/><br/><em>AI-powered tech recommendations</em></td>
     <td><img src="docs/screenshots/ai-advisor.png" alt="AI Advisor" width="500"/><br/><em>AI Trade Advisor (Gemini 2.5 Pro)</em></td>
   </tr>
 </table>
@@ -71,144 +71,144 @@ The answer turned out to be *yes* — and the journey taught me more about AI's 
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/telegram-daily.jpg" alt="Daily Report" width="280"/><br/><em>Täglicher AI Report</em></td>
-    <td><img src="docs/screenshots/telegram-weekly.jpg" alt="Weekly Digest" width="280"/><br/><em>Wochenrückblick</em></td>
-    <td><img src="docs/screenshots/telegram-news.jpg" alt="News Alert" width="280"/><br/><em>Proaktive News-Alerts</em></td>
+    <td><img src="docs/screenshots/telegram-daily.jpg" alt="Daily Report" width="280"/><br/><em>Daily AI Report</em></td>
+    <td><img src="docs/screenshots/telegram-weekly.jpg" alt="Weekly Digest" width="280"/><br/><em>Weekly Digest</em></td>
+    <td><img src="docs/screenshots/telegram-news.jpg" alt="News Alert" width="280"/><br/><em>Proactive News Alerts</em></td>
   </tr>
 </table>
 
-## Architektur
+## Architecture
 
 ```
 Browser (HTML/JS/CSS)
     ↕ REST API + SSE
-FastAPI Backend (lokal / Cloud Run)
-    ├── routes/          → API-Endpunkte
-    ├── engine/          → Scoring, Analyse, Rebalancing, Attribution
-    ├── services/        → Refresh, AI Agent, Telegram Bot, Vertex AI
-    ├── fetchers/        → Datenquellen (Parqet, FMP, yfinance)
-    ├── database.py      → SQLite Persistenz (WAL, Score-History, Snapshots)
-    └── cache/           → In-Memory + Disk Caches
+FastAPI Backend (local / Cloud Run)
+    ├── routes/          → API endpoints
+    ├── engine/          → Scoring, analysis, rebalancing, attribution
+    ├── services/        → Refresh, AI agent, Telegram bot, Vertex AI
+    ├── fetchers/        → Data sources (Parqet, FMP, yfinance)
+    ├── database.py      → SQLite persistence (WAL, score history, snapshots)
+    └── cache/           → In-memory + disk caches
 ```
 
-## Datenquellen
+## Data Sources
 
-| Quelle | Modul | Auth | Liefert |
+| Source | Module | Auth | Provides |
 |---|---|---|---|
-| **Parqet** | `fetchers/parqet.py` | OAuth2 / JWT | Portfolio-Positionen, Kaufkurse, Sektoren |
-| **FMP** | `fetchers/fmp.py` | `FMP_API_KEY` | Fundamentals, Analysten, Dividenden, News (6h-Cache-Schutz) |
-| **yfinance** | `fetchers/yfinance_data.py` | – | Kurse, Recommendations, Insider, ESG, Earnings-Surprise, Fundamentals-Fallback, Altman Z, Piotroski |
-| **yFinance WS** | `fetchers/yfinance_ws.py` | – | Echtzeit-Kurse (WebSocket, International) |
-| **yFinance Screener** | `fetchers/yfinance_screener.py` | – | Stock Discovery (EquityQuery, ersetzt FMP Tech-Picks) |
+| **Parqet** | `fetchers/parqet.py` | OAuth2 / JWT | Portfolio positions, cost basis, sectors |
+| **FMP** | `fetchers/fmp.py` | `FMP_API_KEY` | Fundamentals, analysts, dividends, news (6h cache protection) |
+| **yfinance** | `fetchers/yfinance_data.py` | – | Prices, recommendations, insider, ESG, earnings surprise, Altman Z, Piotroski |
+| **yFinance WS** | `fetchers/yfinance_ws.py` | – | Real-time prices (WebSocket, international) |
+| **yFinance Screener** | `fetchers/yfinance_screener.py` | – | Stock discovery (EquityQuery) |
 | **CNN** | `fetchers/fear_greed.py` | – | Fear & Greed Index |
 | **Vertex AI** | `services/vertex_ai.py` | GCP Service Account | Gemini Pro/Flash, Search Grounding |
 
-> FMP Free Tier: 250 Requests/Tag mit 6h-Cache-Schutz. Alle anderen Quellen kostenlos.
+> FMP Free Tier: 250 requests/day with 6h cache protection. All other sources are free.
 
 ## Scoring Engine (`engine/scorer.py`)
 
-10-Faktor-Bewertungssystem (0–100 Score):
+10-factor scoring system (0–100 composite score):
 
-| Faktor | Gewicht | Quelle |
+| Factor | Weight | Source |
 |---|---|---|
 | Quality (ROE, Margins, Debt) | 19% | FMP |
-| Analyst Consensus + Kursziele | 15% | FMP (verifiziert via Track Record) |
+| Analyst Consensus + Price Targets | 15% | FMP (verified via track record) |
 | Valuation (P/E, EV/EBITDA, PEG) | 14% | FMP |
 | Technical (RSI, SMA, Momentum) | 13% | yfinance |
 | Growth (Revenue, Earnings YoY, Beat Rate) | 11% | FMP + yfinance (Earnings Surprise) |
-| Quantitative (Altman Z, Piotroski) | 10% | yfinance (selbst berechnet) |
+| Quantitative (Altman Z, Piotroski) | 10% | yfinance (self-calculated) |
 | Market Sentiment (Fear&Greed) | 7% | CNN |
 | Momentum (90d, 180d) | 6% | yfinance |
-| Insider Trading | 3% | yfinance (v1.2.0: `Text`-Spalte) |
-| ESG Risk | 2% | yfinance (`sustainability` + `info` Fallback) |
+| Insider Trading | 3% | yfinance |
+| ESG Risk | 2% | yfinance (`sustainability` + `info` fallback) |
 
 **Rating:** Buy (≥68), Hold (40–67), Sell (<40)
 
 ## AI Features (Vertex AI / Gemini)
 
-| Feature | Modell | Beschreibung |
-|---------|--------|--------------|
-| **AI Trade Advisor** | Pro + Grounding + **Function Calling** | 🧠 Agentischer Advisor — Gemini ruft selbst Tools auf |
-| **AI Chat** | Pro + **Function Calling** | 💬 Freie Portfolio-Diskussion im Browser |
-| **Voice-to-Action** | Pro + **Function Calling** + Audio | 🎙️ Sprachnachrichten nativ an Gemini (Telegram) |
-| **News-Kurator** | Flash + Grounding + **Structured Output** | 📡 Proaktive Portfolio-News-Alerts (4×/Tag) |
-| Score-Kommentare | Flash + **Structured Output** | KI-Kommentar pro Aktie bei jedem Refresh |
-| Earnings-Analyse | Pro + Grounding + **Structured Output** | `/earnings` — Echtzeit-Earnings via Search |
-| Portfolio-Chat | Pro + Grounding | Freitext-Fragen in Telegram |
-| Weekly Digest | Flash | Wöchentlicher Summary (Sonntag 18:00) |
-| Risiko-Szenarien | Pro + Grounding | `/risk` — AI-basierte Stress-Analyse |
-| Performance Attribution | Engine | P&L nach Sektor, Top/Flop, Herfindahl-Index |
+| Feature | Model | Description |
+|---------|-------|-------------|
+| **AI Trade Advisor** | Pro + Grounding + **Function Calling** | 🧠 Agentic advisor — Gemini autonomously calls tools |
+| **AI Chat** | Pro + **Function Calling** | 💬 Free-form portfolio discussion in browser |
+| **Voice-to-Action** | Pro + **Function Calling** + Audio | 🎙️ Voice messages natively to Gemini (Telegram) |
+| **News Curator** | Flash + Grounding + **Structured Output** | 📡 Proactive portfolio news alerts (4×/day) |
+| Score Commentaries | Flash + **Structured Output** | AI commentary per stock on each refresh |
+| Earnings Analysis | Pro + Grounding + **Structured Output** | `/earnings` — Real-time earnings via Search |
+| Portfolio Chat | Pro + Grounding | Free-text questions in Telegram |
+| Weekly Digest | Flash | Weekly summary (Sunday 18:00) |
+| Risk Scenarios | Pro + Grounding | `/risk` — AI-powered stress analysis |
+| Performance Attribution | Engine | P&L by sector, top/flop, Herfindahl Index |
 
 ### Function Calling (Trade Advisor)
-Gemini 2.5 Pro hat Zugriff auf 3 Tools und entscheidet selbst, welche Daten benötigt werden:
-- `get_stock_score(ticker)` — 10-Faktor-Score berechnen
-- `get_portfolio_overview()` — Portfolio-Kontext abrufen
-- `get_sector_impact(ticker, action, amount)` — Sektor-Impact simulieren
+Gemini 2.5 Pro has access to 3 tools and autonomously decides which data is needed:
+- `get_stock_score(ticker)` — Calculate 10-factor score
+- `get_portfolio_overview()` — Fetch portfolio context
+- `get_sector_impact(ticker, action, amount)` — Simulate sector impact
 
-### Asynchrone AI-Integration
-Alle Aufrufe an die Gemini API verwenden strikt das asynchrone SDK (`client.aio.models.generate_content`). Dies verhindert eine Blockade des FastAPI `asyncio` Event-Loops während langen KI-Bedenkzeiten und garantiert dauerhafte Responsivität des Dashboards.
+### Async AI Integration
+All Gemini API calls use the async SDK (`client.aio.models.generate_content`). This prevents blocking the FastAPI `asyncio` event loop during long AI inference times, ensuring the dashboard remains responsive at all times.
 
 ### Structured Output
-Alle JSON-AI-Services nutzen `response_schema` — Gemini garantiert valides JSON.
+All JSON-based AI services use `response_schema` — Gemini guarantees valid JSON output.
 
 ## Rebalancing Engine v3 (`engine/rebalancer.py`)
 
-| Feature | Beschreibung |
+| Feature | Description |
 |---------|-------------|
-| Cash-Reserve (R1) | Min. 5% Cash wird nie investiert |
-| Gesamt-Portfolio-Basis (R2) | `total_value` inkl. Cash → realistische Gewichte |
-| Investierbares Cash (R3) | Kaufempfehlungen auf verfügbares Cash begrenzt |
+| Cash Reserve (R1) | Min. 5% cash is never invested |
+| Total Portfolio Basis (R2) | `total_value` including cash → realistic weights |
+| Investable Cash (R3) | Buy recommendations limited to available cash |
 | Conviction Sizing (R4) | High (≥70): 1.5×, Mid (45-69): 1.0×, Low (<45): 0.6× |
-| Portfolio-Health-Score (R5) | 0-100 Score: HHI, Sektor, Beta, Qualität, Positions-Count |
+| Portfolio Health Score (R5) | 0-100 score: HHI, sector, beta, quality, position count |
 
-## Telegram Bot (`/help` für alle Befehle)
+## Telegram Bot (`/help` for all commands)
 
-| Befehl | Beschreibung |
-|--------|--------------|
-| `/portfolio` | Portfolio-Übersicht |
-| `/score [TICKER]` | Score + AI-Kommentar |
-| `/refresh` | Daten-Refresh starten |
-| `/attribution` | P&L Attribution (Sektor, Top/Flop) |
-| `/earnings [TICKER]` | Earnings-Analyse (AI) |
-| `/risk` | Risiko-Szenarien (AI) |
-| `/news-alerts` | Portfolio-News prüfen (AI) |
-| 🎙️ Sprachnachricht | Voice-to-Action (AI) |
-| Freitext | Portfolio-Chat (AI) |
+| Command | Description |
+|---------|-------------|
+| `/portfolio` | Portfolio overview |
+| `/score [TICKER]` | Score + AI commentary |
+| `/refresh` | Trigger data refresh |
+| `/attribution` | P&L attribution (sector, top/flop) |
+| `/earnings [TICKER]` | Earnings analysis (AI) |
+| `/risk` | Risk scenarios (AI) |
+| `/news-alerts` | Check portfolio news (AI) |
+| 🎙️ Voice message | Voice-to-action (AI) |
+| Free text | Portfolio chat (AI) |
 
-## API-Endpoints
+## API Endpoints
 
-42+ REST-Endpoints, gruppiert in 6 Module:
+42+ REST endpoints, grouped into 6 modules:
 
-| Modul | Endpoints | Highlights |
+| Module | Endpoints | Highlights |
 |---|---|---|
-| **Portfolio** | 11 | Dashboard, Positionen, Sektoren, Fear & Greed |
-| **Analytics** | 13 | Benchmark, Korrelation, Risk, Dividenden, Heatmap |
-| **AI Advisor** | 8 | Trade-Bewertung, Chat, Backtest, Score-Trends |
-| **Refresh** | 8 | Granulare Updates (Preise, Scores, Report) |
-| **Demo** | 3 | Demo-Portfolio aktivieren/deaktivieren |
-| **Streaming** | 1 | SSE Echtzeit-Kurse |
+| **Portfolio** | 11 | Dashboard, positions, sectors, Fear & Greed |
+| **Analytics** | 13 | Benchmark, correlation, risk, dividends, heatmap |
+| **AI Advisor** | 8 | Trade evaluation, chat, backtest, score trends |
+| **Refresh** | 8 | Granular updates (prices, scores, reports) |
+| **Demo** | 3 | Demo portfolio activate/deactivate |
+| **Streaming** | 1 | SSE real-time prices |
 
-📖 **[Vollständige API-Dokumentation →](docs/api.md)**
+📖 **[Full API Documentation →](docs/api.md)**
 
-## Persistenz
+## Persistence
 
-| Speicher | Technologie | Inhalt |
-|----------|------------|--------|
-| SQLite (`finanzbro.db`) | WAL-Modus, Thread-safe | Score-History, Snapshots, Reports |
+| Storage | Technology | Contents |
+|---------|-----------|----------|
+| SQLite (`finanzbro.db`) | WAL mode, thread-safe | Score history, snapshots, reports |
 | JSON Cache | Memory + Disk | FMP, yFinance, Fear&Greed (volatile) |
-| Parqet Cache | Memory + Disk | Positionen, Tokens (persistent) |
+| Parqet Cache | Memory + Disk | Positions, tokens (persistent) |
 
-## Sicherheit
+## Security
 
-| Schutz | Konfiguration |
-|--------|---------------|
-| **Dashboard-Passwort** | `DASHBOARD_USER` + `DASHBOARD_PASSWORD` in `.env` |
-| **Telegram Webhook** | `TELEGRAM_WEBHOOK_SECRET` — Secret im URL-Pfad |
-| **Chat-ID Filter** | Bot antwortet nur auf konfigurierte `TELEGRAM_CHAT_ID` |
+| Protection | Configuration |
+|-----------|---------------|
+| **Dashboard Password** | `DASHBOARD_USER` + `DASHBOARD_PASSWORD` in `.env` |
+| **Telegram Webhook** | `TELEGRAM_WEBHOOK_SECRET` — secret in URL path |
+| **Chat ID Filter** | Bot only responds to configured `TELEGRAM_CHAT_ID` |
 
 ## Deployment
 
-### Lokal
+### Local
 ```bash
 python -m venv venv
 pip install -r requirements.txt
@@ -220,109 +220,109 @@ python main.py  # → http://localhost:8000
 ./deploy.sh
 ```
 
-### Cloud Run Job (täglicher Telegram-Report, kostenlos)
+### Cloud Run Job (daily Telegram report, free tier)
 ```bash
-./deploy_job.sh  # Erstellt Job + Cloud Scheduler (15:45 CET)
+./deploy_job.sh  # Creates Job + Cloud Scheduler (15:45 CET)
 ```
 
 ### Environment (.env)
 ```env
-# Pflicht
+# Required
 FMP_API_KEY=...
 PARQET_PORTFOLIO_ID=...
 
-# Optional (Erweiterte Features)
+# Optional (Advanced Features)
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
 GEMINI_API_KEY=...
 
-# Sicherheit
+# Security
 DASHBOARD_USER=...
 DASHBOARD_PASSWORD=...
 TELEGRAM_WEBHOOK_SECRET=...
 
-# Cloud Run (automatisch)
+# Cloud Run (automatic)
 ENVIRONMENT=production
 GCP_PROJECT_ID=...
 ```
 
 ### Scheduler
 
-| Job | Zeit | Funktion |
-|-----|------|----------|
-| Full Analyse | 16:15 | Refresh + Scoring + AI Report |
-| Intraday Kurse | alle 15min (Mo-Fr) | yFinance Batch |
-| Weekly Digest | Freitag 22:30 | Wöchentliche KI-Zusammenfassung |
-| News-Kurator | 09, 13, 17, 21 Uhr (Mo-Fr) | Portfolio-News-Alerts (Gemini Flash) |
+| Job | Schedule | Function |
+|-----|----------|----------|
+| Full Analysis | 16:15 | Refresh + Scoring + AI Report |
+| Intraday Prices | Every 15 min (Mon-Fri) | yFinance Batch |
+| Weekly Digest | Friday 22:30 | Weekly AI summary |
+| News Curator | 09, 13, 17, 21h (Mon-Fri) | Portfolio news alerts (Gemini Flash) |
 | Cloud Run Job | 15:45 (Cloud Scheduler) | Full Refresh → Telegram Report |
 
-## Projektstruktur
+## Project Structure
 
 ```
 FinanzBro/
-├── main.py              # FastAPI App + Startup + Scheduler
+├── main.py              # FastAPI app + startup + scheduler
 ├── config.py            # Pydantic Settings v2
-├── models.py            # 31 Pydantic-Modelle
-├── state.py             # Globaler App-State
-├── database.py          # SQLite Persistence (WAL, 3 Tabellen)
-├── cache_manager.py     # Memory+Disk Cache
+├── models.py            # 31 Pydantic models
+├── state.py             # Global app state
+├── database.py          # SQLite persistence (WAL, 3 tables)
+├── cache_manager.py     # Memory + disk cache
 ├── logging_config.py    # structlog (JSON/Console)
-├── Dockerfile           # Cloud Run Service Container
-├── Dockerfile.job       # Cloud Run Job Container
-├── run_job.py           # Job Entry Point (Refresh → Report)
+├── Dockerfile           # Cloud Run Service container
+├── Dockerfile.job       # Cloud Run Job container
+├── run_job.py           # Job entry point (Refresh → Report)
 ├── middleware/
-│   └── auth.py          # Basic Auth Middleware
+│   └── auth.py          # Basic Auth middleware
 ├── engine/
-│   ├── scorer.py        # 10-Faktor Score-Berechnung
-│   ├── analysis.py      # Report-Generierung + Score-Historie
-│   ├── analytics.py     # Korrelation, Risiko, Dividenden
-│   ├── rebalancer.py    # Rebalancing-Empfehlungen
-│   ├── attribution.py   # P&L Attribution + Herfindahl-Index
-│   ├── portfolio_history.py # Portfolio-Historie (Einzelaktien, Cash, Cost-Basis)
-│   ├── history.py       # Portfolio-Snapshots → SQLite
-│   ├── backtest.py      # Score-Backtest Engine
-│   └── sector_rotation.py # Sektor-Rotation-Analyse (ETF-basiert)
+│   ├── scorer.py        # 10-factor score calculation
+│   ├── analysis.py      # Report generation + score history
+│   ├── analytics.py     # Correlation, risk, dividends
+│   ├── rebalancer.py    # Rebalancing recommendations
+│   ├── attribution.py   # P&L attribution + Herfindahl Index
+│   ├── portfolio_history.py # Portfolio history (per-stock, cash, cost basis)
+│   ├── history.py       # Portfolio snapshots → SQLite
+│   ├── backtest.py      # Score backtest engine
+│   └── sector_rotation.py # Sector rotation analysis (ETF-based)
 ├── fetchers/
 │   ├── parqet.py        # Parqet Connect API (OAuth2 PKCE)
-│   ├── parqet_auth.py   # Token-Management
+│   ├── parqet_auth.py   # Token management
 │   ├── fmp.py           # Financial Modeling Prep
-│   ├── yfinance_data.py # Yahoo Finance (Batch, Fundamentals, Earnings Surprise)
-│   ├── yfinance_ws.py   # yFinance WebSocket (Echtzeit International)
-│   ├── yfinance_screener.py # Stock Discovery (EquityQuery)
+│   ├── yfinance_data.py # Yahoo Finance (batch, fundamentals, earnings surprise)
+│   ├── yfinance_ws.py   # yFinance WebSocket (real-time, international)
+│   ├── yfinance_screener.py # Stock discovery (EquityQuery)
 │   ├── technical.py     # RSI, SMA, MACD
 │   ├── fear_greed.py    # CNN Fear & Greed
-│   ├── currency.py      # Wechselkurse
-│   └── demo_data.py     # Demo-Daten
+│   ├── currency.py      # Exchange rates
+│   └── demo_data.py     # Demo data
 ├── services/
-│   ├── refresh.py       # Haupt-Refresh (mit Progress-Tracking)
-│   ├── data_loader.py   # Paralleles Batch-Loading
-│   ├── portfolio_builder.py # Parqet-Update + yFinance-Preise + calc_portfolio_totals()
-│   ├── ai_agent.py      # Täglicher AI Telegram-Report
+│   ├── refresh.py       # Main refresh (with progress tracking)
+│   ├── data_loader.py   # Parallel batch loading
+│   ├── portfolio_builder.py # Parqet update + yFinance prices + portfolio totals
+│   ├── ai_agent.py      # Daily AI Telegram report
 │   ├── telegram.py      # Telegram API
-│   ├── telegram_bot.py  # Telegram Bot (Command-Handler)
-│   ├── vertex_ai.py     # Gemini Client + Context Caching
+│   ├── telegram_bot.py  # Telegram bot (command handler)
+│   ├── vertex_ai.py     # Gemini client + context caching
 │   ├── trade_advisor.py # AI Trade Advisor (Function Calling + Structured Output + Chat)
-│   ├── earnings_ai.py   # Earnings-Analyse (Structured Output)
-│   ├── score_commentary.py  # AI Score-Kommentare (Structured Output)
-│   ├── weekly_digest.py # Wöchentlicher Digest (Flash)
-│   ├── news_kurator.py  # Proaktive Portfolio-News-Alerts (Structured Output)
-│   ├── tech_radar_ai.py # Tech-Empfehlungen (AI)
-│   ├── analyst_tracker.py   # Analysten Track Record
-│   ├── knowledge_data.py    # Wissens-Datenbank (Projekt-Fakten + tägliche Tipps)
-│   ├── url_fetcher.py       # URL Content Fetcher (HTML→Text für AI Tools)
+│   ├── earnings_ai.py   # Earnings analysis (Structured Output)
+│   ├── score_commentary.py  # AI score commentaries (Structured Output)
+│   ├── weekly_digest.py # Weekly digest (Flash)
+│   ├── news_kurator.py  # Proactive portfolio news alerts (Structured Output)
+│   ├── tech_radar_ai.py # Tech recommendations (AI)
+│   ├── analyst_tracker.py   # Analyst track record
+│   ├── knowledge_data.py    # Knowledge base (project facts + daily tips)
+│   ├── url_fetcher.py       # URL content fetcher (HTML→Text for AI tools)
 │   └── currency_converter.py
 ├── routes/
-│   ├── portfolio.py     # Portfolio + Dashboard
-│   ├── refresh.py       # Refresh + Status
-│   ├── analysis.py      # Analyse-Reports
-│   ├── analytics.py     # Erweiterte Analysen + Attribution
-│   ├── demo.py          # Demo-Modus Toggle (activate/deactivate/status)
+│   ├── portfolio.py     # Portfolio + dashboard
+│   ├── refresh.py       # Refresh + status
+│   ├── analysis.py      # Analysis reports
+│   ├── analytics.py     # Extended analytics + attribution
+│   ├── demo.py          # Demo mode toggle (activate/deactivate/status)
 │   ├── parqet_oauth.py  # OAuth2 PKCE
-│   ├── streaming.py     # SSE Preis-Stream
-│   └── telegram.py      # Telegram Webhook (mit Secret-Token)
+│   ├── streaming.py     # SSE price stream
+│   └── telegram.py      # Telegram webhook (with secret token)
 ├── static/
 │   ├── index.html       # Dashboard UI
-│   ├── app.js           # Frontend-Logic
+│   ├── app.js           # Frontend logic
 │   └── styles.css       # Styling
-└── tests/               # 368+ pytest Tests (21 Testdateien)
+└── tests/               # 368+ pytest tests (21 test files)
 ```
