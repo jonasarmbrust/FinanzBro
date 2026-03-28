@@ -10,7 +10,7 @@
 
 > **Dein Portfolio. Deine Regeln. Unterstützt durch KI.**
 
-Ein vollständiges, selbst-gehostetes Portfolio-Dashboard, das Echtzeit-Kurse, fundamentale Analyse und KI-gestützte Empfehlungen in einer modernen Web-Oberfläche vereint — mit automatischen Telegram-Reports, die dich täglich auf dem Laufenden halten.
+Ein vollständiges Portfolio-Dashboard, das Echtzeit-Kurse, fundamentale Analyse und KI-gestützte Empfehlungen in einer modernen Web-Oberfläche vereint. Läuft lokal oder auf **Google Cloud Run** — und agiert autonom: proaktive Telegram-Alerts bei marktrelevanten Ereignissen, tägliche AI-Reports und ein Telegram Bot, der auf Sprach- und Textnachrichten antwortet.
 
 ![FinanzBro Dashboard](docs/screenshots/dashboard-overview.png)
 
