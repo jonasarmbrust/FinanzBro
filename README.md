@@ -44,6 +44,12 @@ Ein vollständiges, selbst-gehostetes Portfolio-Dashboard, das Echtzeit-Kurse, f
 | **Bot** | Telegram Bot API (Kommandos, Spracheingabe, Inline-Buttons) |
 | **Tests** | pytest (368+ Tests, 21 Testdateien) |
 
+## 💡 Why I Built This
+
+I built FinanzBro to answer a simple question: **Can a non-engineer build a production-grade AI agent system from scratch?**
+
+The answer turned out to be *yes* — and the journey taught me more about AI's real capabilities than any course. I chose personal investing as my domain because genuine interest keeps you going when things break at 2 AM. What started as a scoring engine evolved into an autonomous AI advisor with function calling, real-time streaming, and a Telegram bot that delivers daily AI-generated portfolio reports — turning this from a side project into an interactive agent I actually talk to every day.
+
 ## Screenshots
 
 <table>
