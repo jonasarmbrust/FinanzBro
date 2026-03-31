@@ -28,8 +28,8 @@ FinanceBro operates on the modern Agent paradigm (*Perceive → Reason → Act*)
 
 ![FinanceBro Dashboard](docs/screenshots/dashboard-overview.png)
 
-<details>
-<summary>📸 More Screenshots</summary>
+
+📸 More Screenshots
 
 | | |
 |---|---|
@@ -44,7 +44,7 @@ FinanceBro operates on the modern Agent paradigm (*Perceive → Reason → Act*)
 | ![History](docs/screenshots/history-tab.png) | |
 | **History** — Full position history with P&L, dividends, taxes | |
 
-<br>
+
 
 ### 🤖 Telegram Bot
 
