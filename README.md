@@ -44,6 +44,18 @@ FinanceBro operates on the modern Agent paradigm (*Perceive → Reason → Act*)
 | ![History](docs/screenshots/history-tab.png) | |
 | **History** — Full position history with P&L, dividends, taxes | |
 
+<br>
+
+### 🤖 Telegram Bot
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/telegram-daily.jpg" alt="Daily Report" width="280"/><br/><em>Daily AI Report</em></td>
+    <td><img src="docs/screenshots/telegram-weekly.jpg" alt="Weekly Digest" width="280"/><br/><em>Weekly Digest</em></td>
+    <td><img src="docs/screenshots/telegram-news.jpg" alt="News Alert" width="280"/><br/><em>Proactive News Alerts</em></td>
+  </tr>
+</table>
+
 </details>
 
 ## ✨ Core Features
@@ -73,32 +85,7 @@ FinanceBro operates on the modern Agent paradigm (*Perceive → Reason → Act*)
 | **Tests** | pytest (391 tests, 22 test files) |
 
 
-## Screenshots
 
-<table>
-  <tr>
-    <td><img src="docs/screenshots/portfolio-table.png" alt="Portfolio" width="500"/><br/><em>Portfolio positions with scoring</em></td>
-    <td><img src="docs/screenshots/stock-detail.png" alt="Stock Detail" width="250"/><br/><em>Stock detail with score breakdown</em></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/analyse-tab.png" alt="Analysis" width="500"/><br/><em>Analysis: sectors, risk, benchmark, dividends</em></td>
-    <td><img src="docs/screenshots/rebalancing.png" alt="Rebalancing" width="500"/><br/><em>Conviction-based rebalancing</em></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/tech-picks.png" alt="Tech Picks" width="500"/><br/><em>AI-powered tech recommendations</em></td>
-    <td><img src="docs/screenshots/ai-advisor.png" alt="AI Advisor" width="500"/><br/><em>AI Trade Advisor (Gemini 2.5 Pro)</em></td>
-  </tr>
-</table>
-
-### 🤖 Telegram Bot
-
-<table>
-  <tr>
-    <td><img src="docs/screenshots/telegram-daily.jpg" alt="Daily Report" width="280"/><br/><em>Daily AI Report</em></td>
-    <td><img src="docs/screenshots/telegram-weekly.jpg" alt="Weekly Digest" width="280"/><br/><em>Weekly Digest</em></td>
-    <td><img src="docs/screenshots/telegram-news.jpg" alt="News Alert" width="280"/><br/><em>Proactive News Alerts</em></td>
-  </tr>
-</table>
 
 ## Architecture
 
