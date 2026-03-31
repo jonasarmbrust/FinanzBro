@@ -69,11 +69,8 @@ FinanceBro operates on the modern Agent paradigm (*Perceive → Reason → Act*)
 
 ## 💡 The Vision: From Dashboard to Autonomous Agent
 
-I built FinanceBro to answer a simple question: **What happens when you give an LLM direct access to real-time financial APIs and background automation?**
-
-The answer is a shift from *passive* tools to *active* companions. Traditional dashboards force you to log in, pull data, and run your own analysis. FinanceBro reverses this dynamic. It watches the markets while you sleep, cross-references breaking news against a proprietary 10-factor quantitative model, and actively pings *you* on Telegram when it has high-conviction insights. 
-
-What started as a simple stock scoring script evolved quickly into a production-grade Agent system. It taught me that the true power of AI models like Gemini isn't just in chatting—it's in **Function Calling** and **Autonomy**. FinanceBro is no longer a side project; it sits in my pocket as an autonomous, 24/7 wealth advisor that I talk to every single day.
+I built FinanzBro to answer a simple question: Can a non-engineer build a production-grade AI agent system from scratch?
+The answer turned out to be yes — and the journey taught me more about AI's real capabilities than any course. I chose personal investing as my domain because genuine interest keeps you going when things break at 2 AM. What started as a scoring engine evolved into an autonomous AI advisor with function calling, real-time streaming, and a Telegram bot that delivers daily AI-generated portfolio reports — turning this from a side project into an interactive agent I actually talk to every day.
 
 ## Screenshots
 
