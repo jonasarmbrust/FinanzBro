@@ -1,4 +1,4 @@
-# FinanzBro - Cloud Run Job Container
+# FinanceBro - Cloud Run Job Container
 FROM python:3.12-slim
 
 # System deps

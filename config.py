@@ -1,4 +1,4 @@
-"""FinanzBro - Zentrale Konfiguration (Pydantic Settings v2)
+"""FinanceBro - Zentrale Konfiguration (Pydantic Settings v2)
 
 Alle Werte werden aus .env oder Umgebungsvariablen geladen.
 Type-Safety und Validierung durch Pydantic.

@@ -1,4 +1,4 @@
-"""FinanzBro - Telegram Webhook Route.
+"""FinanceBro - Telegram Webhook Route.
 
 Empfängt eingehende Nachrichten von Telegram via Webhook
 und leitet sie an den Command Handler weiter.

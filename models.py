@@ -1,4 +1,4 @@
-"""FinanzBro - Pydantic Datenmodelle"""
+"""FinanceBro - Pydantic Datenmodelle"""
 from __future__ import annotations
 from datetime import datetime
 from enum import Enum
@@ -313,7 +313,7 @@ class TechRecommendation(BaseModel):
     ai_summary: str = ""           # KI-generierte Investment-These
     revenue_growth: Optional[float] = None   # Revenue Growth in %
     roe: Optional[float] = None              # Return on Equity in %
-    source: str = "FinanzBro Tech-Radar"     # Quellen-Label
+    source: str = "FinanceBro Tech-Radar"     # Quellen-Label
 
 
 class PortfolioSummary(BaseModel):

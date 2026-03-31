@@ -1,4 +1,4 @@
-"""FinanzBro - Telegram Bot Service.
+"""FinanceBro - Telegram Bot Service.
 
 Sendet Nachrichten über die Telegram Bot API.
 Unterstützt Markdown-Formatierung und automatisches Splitting
@@ -79,7 +79,7 @@ async def send_report(title: str, sections: list[tuple[str, str]]) -> bool:
     """Sendet einen strukturierten Report mit Titel und Abschnitten.
 
     Args:
-        title: Report-Titel (z.B. "📊 FinanzBro Daily Report")
+        title: Report-Titel (z.B. "📊 FinanceBro Daily Report")
         sections: Liste von (emoji_header, content) Tupeln
 
     Returns:

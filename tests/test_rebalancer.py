@@ -1,4 +1,4 @@
-"""FinanzBro - Tests für den Rebalancer v3."""
+"""FinanceBro - Tests für den Rebalancer v3."""
 import pytest
 from engine.rebalancer import (
     calculate_rebalancing,

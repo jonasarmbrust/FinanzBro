@@ -1,4 +1,4 @@
-# 📊 FinanzBro – Intelligent Portfolio Dashboard
+# 🤖 FinanceBro – AI-Driven Portfolio Agent
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](https://python.org)
@@ -6,35 +6,36 @@
 [![Gemini AI](https://img.shields.io/badge/Gemini_AI-2.5_Pro-4285F4.svg?logo=google&logoColor=white)](https://ai.google.dev)
 [![Cloud Run](https://img.shields.io/badge/Cloud_Run-Deployed-4285F4.svg?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
 [![Tests](https://img.shields.io/badge/Tests-368%2B-22c55e.svg)](tests/)
-[![CI/CD](https://github.com/jonasarmbrust/FinanzBro/actions/workflows/deploy.yml/badge.svg)](https://github.com/jonasarmbrust/FinanzBro/actions)
+[![CI/CD](https://github.com/jonasarmbrust/FinanceBro/actions/workflows/deploy.yml/badge.svg)](https://github.com/jonasarmbrust/FinanceBro/actions)
 
-> **Your portfolio. Your rules. Powered by AI.**
+> **Watch the markets. Reason with data. Act on conviction.**
 
-A full-stack portfolio dashboard combining real-time market data, fundamental analysis, and AI-driven recommendations in a modern web interface. Runs locally or on **Google Cloud Run** — and acts autonomously: proactive Telegram alerts on market-relevant events, daily AI reports, and a Telegram bot that responds to voice and text messages.
+FinanceBro is not just a dashboard—it is a full-fledged **AI Financial Agent** built around Google's Gemini 2.5 Pro. It autonomously monitors your stock portfolio, analyzes real-time market conditions, and communicates with you via a beautiful web UI and a proactive Telegram bot. By combining a hard-coded 10-factor quantitative model with sophisticated LLM reasoning, it bridges the gap between classic stock screeners and modern agentic AI.
 
-![FinanzBro Dashboard](docs/screenshots/dashboard-overview.png)
+## 🧠 The Agent Architecture (Why it's an Agent)
 
-## ✨ Highlights
+FinanceBro operates on the modern Agent paradigm (*Perceive → Reason → Act*):
 
-🎯 **10-Factor Scoring Engine** — Quality, Valuation, Technical, Growth, Analysts, Sentiment, Insider, ESG, Quantitative + Stability → one composite score per stock (0–100)
+1. **📡 Perception (Sensory Input):** The agent autonomously "watches" the market through real-time data streams (yFinance WebSockets, Parqet API, CNN Fear & Greed) and continuously ingests live news feeds without requiring user interaction.
+2. **🧠 Reasoning (The Brain):** Powered by **Gemini 2.5 Pro**, the system fuses structured quantitative data (its proprietary 10-factor scoring model) with unstructured narrative data (global news) to synthesize context-aware risk assessments and buy/sell convictions.
+3. **🛠️ Action (Function Calling):** Unlike a static chatbot, the AI utilizes explicit **Function Calling** to interact directly with the FastAPI backend—pulling live charts, calculating specific sector impacts, and executing analytical workflows dynamically when you ask it complex questions.
+4. **⏱️ Autonomy (Proactivity):** Driven by an APScheduler, the agent operates autonomously in the background. It curates a "News Digest" 4x a day, compiles an End-of-Day analysis, and proactively pushes critical push notifications to your Telegram, completely eliminating the need to refresh a dashboard.
 
-🤖 **AI Trade Advisor** — Ask Gemini 2.5 Pro: *"Should I buy NVDA for €2,000?"* → get a detailed analysis with position sizing, risk assessment, and conviction score
+![FinanceBro Dashboard](docs/screenshots/dashboard-overview.png)
 
-⚖️ **Conviction-Based Rebalancing** — Not simple equal-weight, but weighted recommendations based on score, sector limits (max 35%), beta, and analyst consensus
+## ✨ Core Features
 
-📡 **Live Streaming** — yFinance WebSocket + Server-Sent Events → prices update in real-time without page reload
+🎯 **10-Factor Scoring Model** — Deep fundamental analysis fusing Quality, Valuation, Momentum, Analyst Ratings, ESG, and Insider trades into a strict 0–100 score.
 
-📱 **Telegram Bot** — Daily AI-generated portfolio reports, weekly digests, proactive news alerts, and voice commands → your portfolio always in your pocket
+⚖️ **Conviction-Based Rebalancing** — Algorithmically generates portfolio rebalancing targets based on scoring conviction and strict sector-weighting risk controls.
 
-🔍 **Tech Radar** — Automated stock screener discovers new tech stocks daily, scores them with the multi-factor model, and delivers AI-generated summaries
+📱 **Continuous Telegram Integration** — Connect with your AI agent anywhere. Supports `/score` commands, voice-to-text queries, and free-form portfolio chatting.
 
-📊 **Deep Analytics** — Sector allocation, benchmark vs. S&P 500, correlation matrix, risk profile (VaR, beta, drawdown), dividend tracker, earnings calendar, P&L attribution
+👻 **Shadow Portfolio Agent** — A full autonomous paper-trading engine that builds, tests, and validates AI-driven investment strategies (Aggressive, Balanced, Conservative) in real-time alongside your main portfolio.
 
-🔄 **Fully Autonomous** — APScheduler handles it all: price updates every 15 min, daily analysis at 16:15, weekly digest, news curator 4x daily
+📄 **Universal CSV Import** — Provide your portfolio strictly locally via CSV export from any standard broker; no third-party tracking accounts required.
 
-📄 **CSV Portfolio Import** — No Parqet account? Import your portfolio from any CSV file with ticker, shares, and buy price. Works with any broker export.
-
-🌐 **Bilingual UI** — Switch between English and German with one click. Language preference is saved automatically.
+🌐 **Premium SaaS Dashboard** — Bilingual (EN/DE), Dark/Light Apple-Glass aesthetics, and Server-Sent Events (SSE) for zero-reload live price ticks.
 
 ## 🛠️ Tech Stack
 
@@ -48,11 +49,13 @@ A full-stack portfolio dashboard combining real-time market data, fundamental an
 | **Bot** | Telegram Bot API (Commands, Voice Input, Inline Buttons) |
 | **Tests** | pytest (390+ tests, 22 test files) |
 
-## 💡 Why I Built This
+## 💡 The Vision: From Dashboard to Autonomous Agent
 
-I built FinanzBro to answer a simple question: **Can a non-engineer build a production-grade AI agent system from scratch?**
+I built FinanceBro to answer a simple question: **What happens when you give an LLM direct access to real-time financial APIs and background automation?**
 
-The answer turned out to be *yes* — and the journey taught me more about AI's real capabilities than any course. I chose personal investing as my domain because genuine interest keeps you going when things break at 2 AM. What started as a scoring engine evolved into an autonomous AI advisor with function calling, real-time streaming, and a Telegram bot that delivers daily AI-generated portfolio reports — turning this from a side project into an interactive agent I actually talk to every day.
+The answer is a shift from *passive* tools to *active* companions. Traditional dashboards force you to log in, pull data, and run your own analysis. FinanceBro reverses this dynamic. It watches the markets while you sleep, cross-references breaking news against a proprietary 10-factor quantitative model, and actively pings *you* on Telegram when it has high-conviction insights. 
+
+What started as a simple stock scoring script evolved quickly into a production-grade Agent system. It taught me that the true power of AI models like Gemini isn't just in chatting—it's in **Function Calling** and **Autonomy**. FinanceBro is no longer a side project; it sits in my pocket as an autonomous, 24/7 wealth advisor that I talk to every single day.
 
 ## Screenshots
 
@@ -188,6 +191,11 @@ The import flow:
 
 > An `example_portfolio.csv` is included in the repository.
 
+### 👨‍💻 Developer Note: Custom Broker Exports
+If you want to use the raw CSV exports from your specific broker (e.g., Trade Republic, Scalable Capital, Interactive Brokers) without manually reformatting the columns first, you can easily adapt the parser! 
+
+Just open `fetchers/csv_reader.py` and modify the `parse_csv` logic. The system is designed to be highly modular—you simply need to map your broker's specific column names to the expected internal format (`ticker`, `shares`, `buy_price`).
+
 ## Bilingual UI (DE/EN)
 
 The dashboard supports German and English. Click the language toggle (DE/EN) in the header to switch. The AI Trade Advisor and Chat also respond in the selected language. Preference is saved in `localStorage`.
@@ -225,7 +233,7 @@ The dashboard supports German and English. Click the language toggle (DE/EN) in 
 
 | Storage | Technology | Contents |
 |---------|-----------|----------|
-| SQLite (`finanzbro.db`) | WAL mode, thread-safe | Score history, snapshots, reports |
+| SQLite (`financebro.db`) | WAL mode, thread-safe | Score history, snapshots, reports |
 | JSON Cache | Memory + Disk | FMP, yFinance, Fear&Greed (volatile) |
 | Parqet Cache | Memory + Disk | Positions, tokens (persistent) |
 
@@ -290,7 +298,7 @@ GCP_PROJECT_ID=...
 ## Project Structure
 
 ```
-FinanzBro/
+FinanceBro/
 ├── main.py              # FastAPI app + startup + scheduler
 ├── config.py            # Pydantic Settings v2
 ├── models.py            # 31 Pydantic models

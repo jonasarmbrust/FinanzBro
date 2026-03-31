@@ -1,4 +1,4 @@
-"""FinanzBro - Zentraler Cache Manager
+"""FinanceBro - Zentraler Cache Manager
 
 Einheitliches Caching mit In-Memory-Layer und Disk-Persistierung.
 Ersetzt die duplizierten _load_cache()/_save_cache() Funktionen in allen Fetchers.

@@ -1,4 +1,4 @@
-"""FinanzBro - Pytest Fixtures und Testdaten."""
+"""FinanceBro - Pytest Fixtures und Testdaten."""
 import sys
 from pathlib import Path
 

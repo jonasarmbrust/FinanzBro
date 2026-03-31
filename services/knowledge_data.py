@@ -1,4 +1,4 @@
-"""FinanzBro - Knowledge Data Module.
+"""FinanceBro - Knowledge Data Module.
 
 Wissens-Datenbank mit Technologie-Fakten und täglichen Lern-Tipps
 basierend auf allen Antigravity-Projekten.
@@ -51,8 +51,8 @@ PROJECT_KNOWLEDGE: dict[str, dict] = {
         ],
         "key_learning": "Modulares JavaScript und Algorithmen-Implementierung",
     },
-    "finanzbro": {
-        "name": "FinanzBro",
+    "financebro": {
+        "name": "FinanceBro",
         "emoji": "💰",
         "description": "Full-Stack Aktienportfolio-Dashboard mit AI-Analyse",
         "difficulty": "⭐⭐⭐⭐⭐ Komplex",
@@ -174,10 +174,10 @@ DAILY_TIPS: list[dict] = [
             "Das Ergebnis: Die Engine könnte ohne Browser laufen – z.B. für Batch-Simulationen in Node.js."
         ),
     },
-    # ── Projekt: FinanzBro ──
+    # ── Projekt: FinanceBro ──
     {
         "category": "Python",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "FastAPI – Modernes Python Web-Framework",
         "text": (
             "⚡ *FastAPI*\n\n"
@@ -190,7 +190,7 @@ DAILY_TIPS: list[dict] = [
     },
     {
         "category": "Python",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "Pydantic – Daten die sich selbst prüfen",
         "text": (
             "📋 *Pydantic Models*\n\n"
@@ -201,29 +201,29 @@ DAILY_TIPS: list[dict] = [
     },
     {
         "category": "Python",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "Async/Await – Mehrere Dinge gleichzeitig",
         "text": (
             "⚡ *Async/Await*\n\n"
             "Statt nacheinander auf 5 APIs zu warten (5×2s = 10s), startest du alle gleichzeitig (~2s).\n\n"
             "`async def get_data():`\n"
             "`    results = await asyncio.gather(api1(), api2(), api3())`\n\n"
-            "📂 FinanzBro holt Parqet, FMP und yfinance parallel."
+            "📂 FinanceBro holt Parqet, FMP und yfinance parallel."
         ),
     },
     {
         "category": "Sicherheit",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "Secrets gehören in .env, nie in den Code!",
         "text": (
             "🔐 *Environment Variables*\n\n"
             "API-Keys NIEMALS in den Code schreiben! Bots scannen GitHub und missbrauchen Keys innerhalb von Minuten.\n\n"
-            "Lösung: `.env`-Datei + `.gitignore`. FinanzBro nutzt `python-dotenv` + `config.py` als zentrale Settings-Klasse."
+            "Lösung: `.env`-Datei + `.gitignore`. FinanceBro nutzt `python-dotenv` + `config.py` als zentrale Settings-Klasse."
         ),
     },
     {
         "category": "Architektur",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "Layered Architecture – Schichten statt Spaghetti",
         "text": (
             "🏗️ *Layered Architecture*\n\n"
@@ -234,19 +234,19 @@ DAILY_TIPS: list[dict] = [
     },
     {
         "category": "API",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "OAuth2 – Sicherer API-Zugang ohne Passwort",
         "text": (
             "🔄 *OAuth2 Flow*\n\n"
             "Du autorisierst dich einmal und bekommst zwei Tokens:\n"
             "• Access Token – kurzlebig (~1h), für API-Calls\n"
             "• Refresh Token – langlebig, holt neue Access Tokens\n\n"
-            "📂 FinanzBro's `parqet_auth.py` erneuert Tokens automatisch."
+            "📂 FinanceBro's `parqet_auth.py` erneuert Tokens automatisch."
         ),
     },
     {
         "category": "Performance",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "Caching – Einmal holen, mehrmals nutzen",
         "text": (
             "💾 *Caching mit TTL*\n\n"
@@ -257,7 +257,7 @@ DAILY_TIPS: list[dict] = [
     },
     {
         "category": "Python",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "APScheduler – Automatische Zeitsteuerung",
         "text": (
             "⏰ *Scheduled Jobs*\n\n"
@@ -270,24 +270,24 @@ DAILY_TIPS: list[dict] = [
     },
     {
         "category": "Echtzeit",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "WebSocket vs. Polling – Echtzeit-Daten",
         "text": (
             "🌐 *WebSocket Streaming*\n\n"
             "Polling: Alle 5s fragen 'Hat sich was geändert?' → 240 Anfragen/Minute bei 20 Aktien.\n"
             "WebSocket: 1 offene Verbindung, Updates kommen automatisch sofort.\n\n"
-            "📂 FinanzBro nutzt yFinance WebSocket für Live-Kurse."
+            "📂 FinanceBro nutzt yFinance WebSocket für Live-Kurse."
         ),
     },
     {
         "category": "DevOps",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "Docker – Deine App in einer Box",
         "text": (
             "🐳 *Docker Container*\n\n"
             "Docker packt App + alle Abhängigkeiten in einen Container.\n"
             "Funktioniert auf deinem PC? → Funktioniert überall.\n\n"
-            "FinanzBro Best Practices:\n"
+            "FinanceBro Best Practices:\n"
             "• `python:3.12-slim` (kleines Image)\n"
             "• Non-Root User (Sicherheit)\n"
             "• Cloud Run Deployment"
@@ -295,7 +295,7 @@ DAILY_TIPS: list[dict] = [
     },
     {
         "category": "Resilienz",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "Graceful Degradation – Nie abstürzen",
         "text": (
             "🛡️ *Graceful Degradation*\n\n"
@@ -307,11 +307,11 @@ DAILY_TIPS: list[dict] = [
     },
     {
         "category": "KI",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "Google Gemini API – KI in der eigenen App",
         "text": (
             "🤖 *Gemini Integration*\n\n"
-            "FinanzBro nutzt Gemini 2.5 Pro für:\n"
+            "FinanceBro nutzt Gemini 2.5 Pro für:\n"
             "• Tägliche Portfolio-Analysen\n"
             "• Marktberichte mit Search Grounding\n"
             "• Earnings-Analysen\n"
@@ -321,11 +321,11 @@ DAILY_TIPS: list[dict] = [
     },
     {
         "category": "Scoring",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "Multi-Faktor Scoring – 9 Datenpunkte, 1 Score",
         "text": (
             "🏆 *Scoring Engine*\n\n"
-            "Statt einer Zahl kombiniert FinanzBro 9 Faktoren:\n"
+            "Statt einer Zahl kombiniert FinanceBro 9 Faktoren:\n"
             "Quality 20% | Analyst 15% | Valuation 15%\n"
             "Technical 15% | Growth 12% | Quant 10%\n"
             "Sentiment 7% | Momentum 6% | Insider+ESG 5%\n\n"
@@ -388,14 +388,14 @@ DAILY_TIPS: list[dict] = [
     # ── Allgemeine Konzepte ──
     {
         "category": "Grundlagen",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "API – Der Kellner zwischen Küche und Gast",
         "text": (
             "🔌 *Was ist eine API?*\n\n"
             "API = Application Programming Interface = Schnittstelle.\n\n"
             "Wie ein Kellner: Du (Client) gibst eine Bestellung auf, "
             "der Kellner (API) bringt sie zur Küche (Server) und kommt mit dem Essen (Daten) zurück.\n\n"
-            "FinanzBro nutzt 7+ verschiedene APIs!"
+            "FinanceBro nutzt 7+ verschiedene APIs!"
         ),
     },
     {
@@ -422,24 +422,24 @@ DAILY_TIPS: list[dict] = [
     },
     {
         "category": "Telegram",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "Telegram Bot API – Dein eigener Bot",
         "text": (
             "🤖 *Telegram Bot*\n\n"
             "Ein Bot ist ein Programm das auf Nachrichten reagiert.\n"
-            "FinanzBro nutzt Webhooks: Telegram sendet jede Nachricht an eine URL, "
+            "FinanceBro nutzt Webhooks: Telegram sendet jede Nachricht an eine URL, "
             "der Server verarbeitet sie und antwortet.\n\n"
             "Befehle wie /portfolio, /score, /news machen den Bot interaktiv."
         ),
     },
     {
         "category": "Testing",
-        "project": "finanzbro",
+        "project": "financebro",
         "title": "pytest – Automatische Code-Tests",
         "text": (
             "🧪 *Automatisierte Tests*\n\n"
             "`pytest` führt Test-Funktionen aus und prüft ob dein Code korrekt ist.\n\n"
-            "FinanzBro hat 15+ Testdateien die prüfen:\n"
+            "FinanceBro hat 15+ Testdateien die prüfen:\n"
             "• Scoring-Berechnung korrekt?\n"
             "• Telegram-Nachrichten richtig formatiert?\n"
             "• AI-Agent-Report vollständig?\n\n"
@@ -472,12 +472,12 @@ def get_project_summary(project_key: str) -> str:
 
     Args:
         project_key: Schlüssel aus PROJECT_KNOWLEDGE
-                     (ai_knowledge, pokerpro, finanzbro, job_automation)
+                     (ai_knowledge, pokerpro, financebro, job_automation)
 
     Returns:
         Formatierter Text für Telegram.
     """
-    # Fuzzy matching: "finanzbro", "FinanzBro", "finanz" → finanzbro
+    # Fuzzy matching: "financebro", "FinanceBro", "finanz" → financebro
     key = _fuzzy_match_project(project_key)
     if not key:
         available = ", ".join(
@@ -551,10 +551,10 @@ def _fuzzy_match_project(query: str) -> str | None:
         "poker": "pokerpro",
         "pokerpro": "pokerpro",
         "simulator": "pokerpro",
-        "finanz": "finanzbro",
-        "finanzbro": "finanzbro",
-        "aktien": "finanzbro",
-        "portfolio": "finanzbro",
+        "finanz": "financebro",
+        "financebro": "financebro",
+        "aktien": "financebro",
+        "portfolio": "financebro",
         "job": "job_automation",
         "jobs": "job_automation",
         "job_automation": "job_automation",
@@ -567,7 +567,7 @@ def _fuzzy_match_project(query: str) -> str | None:
     if q in aliases:
         return aliases[q]
 
-    # Partial match: "finanz" → "finanzbro"
+    # Partial match: "finanz" → "financebro"
     for key in PROJECT_KNOWLEDGE:
         if q in key or key in q:
             return key

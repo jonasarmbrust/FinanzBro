@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Optional
 import logging
 
-logger = logging.getLogger("finanzbro.csv_reader")
+logger = logging.getLogger("financebro.csv_reader")
 
 
 def parse_csv_file(file_path: str) -> list[dict]:

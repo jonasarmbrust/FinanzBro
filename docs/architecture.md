@@ -1,12 +1,12 @@
-# FinanzBro – Architektur
+# FinanceBro – Architektur
 
 ## Übersicht
 
-FinanzBro ist ein intelligentes Aktienportfolio-Dashboard mit automatisierter Multi-Faktor-Analyse.  
+FinanceBro ist ein intelligentes Aktienportfolio-Dashboard mit automatisierter Multi-Faktor-Analyse.  
 Läuft lokal (Python) und auf Google Cloud Run (Docker).
 
 ```
-FinanzBro/
+FinanceBro/
 ├── main.py                 # FastAPI App + Lifespan + Scheduler
 ├── config.py               # Pydantic Settings v2 (.env auto-loading)
 ├── models.py               # 31 Pydantic-Datenmodelle
@@ -22,6 +22,7 @@ FinanzBro/
 │   ├── analysis.py         # POST /api/analysis/run, GET /api/analysis/latest
 │   ├── analytics.py        # Dividenden, Risiko, Korrelation, Attribution
 │   ├── demo.py             # POST /api/demo/activate|deactivate, GET /status
+│   ├── shadow_portfolio.py # GET/POST /api/shadow-portfolio (Paper Trading Agent)
 │   ├── parqet_oauth.py     # GET /api/parqet/authorize + /callback (OAuth2 PKCE)
 │   ├── streaming.py        # GET /api/prices/stream (SSE)
 │   └── telegram.py         # Telegram Webhook
@@ -41,6 +42,7 @@ FinanzBro/
 │   ├── tech_radar_ai.py    # AI-gestützte Tech-Empfehlungen
 │   ├── trade_advisor.py    # AI Trade Advisor (Function Calling + Structured Output + Chat)
 │   ├── analyst_tracker.py  # Analysten Track Record Bewertung
+│   ├── shadow_agent.py     # Autonome Buy/Sell/Hold Engine (Paper Trading)
 │   ├── knowledge_data.py   # Wissens-Datenbank (Projekt-Fakten + tägliche Tipps)
 │   └── url_fetcher.py      # URL Content Fetcher (HTML→Text für AI Tools)
 │
@@ -151,7 +153,7 @@ sequenceDiagram
 
 | Schicht | Technologie | Inhalt | Verlust bei Restart? |
 |---------|------------|--------|---------------------|
-| **SQLite** (`finanzbro.db`) | WAL-Modus | Score-History, Snapshots, Reports | Ja (Cloud Run) |
+| **SQLite** (`financebro.db`) | WAL-Modus | Score-History, Snapshots, Reports | Ja (Cloud Run) |
 | **JSON Cache** | Memory + Disk | FMP, yFinance, Parqet | Teilweise (volatile) |
 | **State** (`portfolio_data`) | In-Memory Dict | Aktuelles Portfolio, Activities | Ja |
 
@@ -257,7 +259,7 @@ Konfiguration:
 
 ### Keep-Alive (Cloud Scheduler)
 ```
-Job:      finanzbro-keepalive
+Job:      financebro-keepalive
 Schedule: */10 8-22 * * 1-5 (alle 10min, Mo-Fr 08-22 CET)
 Target:   GET /health
 Zweck:    Hält den Container wach damit APScheduler
@@ -289,4 +291,4 @@ Kosten:  0 €/Monat (Free Tier)
 | Weekly Digest | Freitag 22:30 | KI-Zusammenfassung |
 | Cloud Run Job | 15:45 CET (Cloud Scheduler) | Full Refresh → Telegram Report |
 
-> **Wichtig:** Der APScheduler läuft in-process im Cloud Run Container. Ohne den `finanzbro-keepalive` Cloud Scheduler Job würde der Container bei Inaktivität abschalten und alle geplanten Jobs stoppen.
+> **Wichtig:** Der APScheduler läuft in-process im Cloud Run Container. Ohne den `financebro-keepalive` Cloud Scheduler Job würde der Container bei Inaktivität abschalten und alle geplanten Jobs stoppen.

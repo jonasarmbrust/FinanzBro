@@ -1,4 +1,4 @@
-"""FinanzBro - Refresh API-Routes.
+"""FinanceBro - Refresh API-Routes.
 
 POST-Endpoints zum Auslösen von Daten-Refreshes.
 """

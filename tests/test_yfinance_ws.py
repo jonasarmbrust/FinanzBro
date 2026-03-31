@@ -1,4 +1,4 @@
-"""FinanzBro - yfinance WebSocket Tests
+"""FinanceBro - yfinance WebSocket Tests
 
 Testet den YFinanceStreamer In-Memory-Cache, Subscribe/Unsubscribe-Logik
 und Message-Processing. Keine echte WebSocket-Verbindung nötig.

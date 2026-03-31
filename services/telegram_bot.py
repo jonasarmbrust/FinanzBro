@@ -1,4 +1,4 @@
-"""FinanzBro - Telegram Bot Command Handler.
+"""FinanceBro - Telegram Bot Command Handler.
 
 Verarbeitet eingehende Telegram-Nachrichten (Webhook).
 Unterstützte Befehle:
@@ -114,7 +114,7 @@ async def _cmd_start(chat_id: str):
     """Willkommensnachricht."""
     from services.telegram import send_message
     await send_message(
-        "🚀 *FinanzBro AI Agent*\n\n"
+        "🚀 *FinanceBro AI Agent*\n\n"
         "Ich bin dein persönlicher Finanzanalyst.\n\n"
         "Verfügbare Befehle:\n"
         "  /portfolio — Portfolio-Übersicht\n"
@@ -133,7 +133,7 @@ async def _cmd_help(chat_id: str):
     """Befehlsübersicht."""
     from services.telegram import send_message
     await send_message(
-        "📋 *FinanzBro Befehle*\n\n"
+        "📋 *FinanceBro Befehle*\n\n"
         "  /portfolio — Portfolio mit Scores und P&L\n"
         "  /score AAPL — Detail-Score einer Aktie\n"
         "  /attribution — Performance-Attribution\n"
@@ -425,7 +425,7 @@ async def _cmd_news(chat_id: str):
             return
 
     # Header + Antwort senden
-    full_message = f"📰 *FinanzBro News & Analyse*\n_{model_used}_\n\n{result}"
+    full_message = f"📰 *FinanceBro News & Analyse*\n_{model_used}_\n\n{result}"
     await send_message(full_message, chat_id=chat_id)
 
     logger.info(f"✅ /news Befehl ausgeführt ({len(result)} Zeichen, {model_used})")
@@ -632,7 +632,7 @@ async def _cmd_chat(chat_id: str, question: str):
             url_context = "\n\n".join(url_parts)
 
         system_prompt = (
-            "Du bist FinanzBro, ein intelligenter Portfolio-Assistent. "
+            "Du bist FinanceBro, ein intelligenter Portfolio-Assistent. "
             "Antworte kurz und prägnant auf Deutsch (max 800 Zeichen). "
             "Nutze Emojis sparsam. Sei direkt und hilfreich.\n\n"
         )
@@ -985,7 +985,7 @@ async def _process_voice_with_gemini(audio_bytes: bytes, caption: str = "") -> s
 
     # Reichhaltiger Kontext fuer bessere Antworten
     system_prompt = (
-        "Du bist FinanzBro, ein persoenlicher Portfolio-Assistent. "
+        "Du bist FinanceBro, ein persoenlicher Portfolio-Assistent. "
         "Der User hat per Sprachnachricht eine Frage gestellt.\n\n"
         "WICHTIG:\n"
         "- Beziehe dich KONKRET auf die Positionen des Users wenn relevant\n"

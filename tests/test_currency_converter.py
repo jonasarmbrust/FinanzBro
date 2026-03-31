@@ -1,4 +1,4 @@
-"""FinanzBro - Tests für den CurrencyConverter."""
+"""FinanceBro - Tests für den CurrencyConverter."""
 import pytest
 from unittest.mock import patch, AsyncMock
 from services.currency_converter import CurrencyConverter, ExchangeRates

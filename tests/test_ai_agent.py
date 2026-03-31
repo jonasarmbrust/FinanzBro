@@ -115,7 +115,7 @@ class TestBuildTelegramReport:
         from services.ai_agent import _build_telegram_report
         text = _build_telegram_report(sample_summary, sample_report)
 
-        assert "FinanzBro Daily Report" in text
+        assert "FinanceBro Daily Report" in text
         assert "Portfolio Übersicht" in text
         assert "4,100.00 EUR" in text or "4.100,00" in text
 
@@ -170,7 +170,7 @@ class TestBuildTelegramReport:
         # Sollte nicht crashen ohne Report
         text = _build_telegram_report(sample_summary, None)
 
-        assert "FinanzBro Daily Report" in text
+        assert "FinanceBro Daily Report" in text
         assert "Positionen" in text
 
 

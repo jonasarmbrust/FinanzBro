@@ -1,4 +1,4 @@
-"""FinanzBro - Portfolio Builder (C1 Refactoring)
+"""FinanceBro - Portfolio Builder (C1 Refactoring)
 
 Zwei getrennte Update-Pfade:
   1. update_parqet()         → Positionen, Cash, Stückzahl, Einkaufspreis (Parqet API)

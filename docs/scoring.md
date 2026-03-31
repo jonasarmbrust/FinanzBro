@@ -1,4 +1,4 @@
-# FinanzBro – Scoring Engine v5
+# FinanceBro – Scoring Engine v5
 
 ## Übersicht
 

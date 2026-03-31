@@ -1,4 +1,4 @@
-"""FinanzBro - Analytics Engine
+"""FinanceBro - Analytics Engine
 
 Berechnungen für:
   - Korrelationsmatrix & Diversifikations-Score

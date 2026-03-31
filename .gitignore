@@ -1,5 +1,5 @@
 # ========================
-# FinanzBro .gitignore
+# FinanceBro .gitignore
 # ========================
 
 # === Secrets & Konfiguration ===
@@ -40,4 +40,4 @@ Desktop.ini
 .agents/
 
 # === Raw Screenshots (use docs/screenshots/) ===
-Screenshots FinanzBro/
+Screenshots FinanceBro/

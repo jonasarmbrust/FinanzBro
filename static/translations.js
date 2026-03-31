@@ -1,10 +1,10 @@
 /**
- * FinanzBro i18n — Bilingual Translation System (DE + EN)
+ * FinanceBro i18n — Bilingual Translation System (DE + EN)
  * Usage: t('key') returns the string for the current language
  * Language is stored in localStorage and defaults to browser language
  */
 
-let currentLang = localStorage.getItem('finanzbro-lang') ||
+let currentLang = localStorage.getItem('financebro-lang') ||
     (navigator.language.startsWith('de') ? 'de' : 'en');
 
 const i18n = {
@@ -331,7 +331,7 @@ function t(key) {
  */
 function switchLanguage(lang) {
     currentLang = lang;
-    localStorage.setItem('finanzbro-lang', lang);
+    localStorage.setItem('financebro-lang', lang);
     applyTranslations();
     // Re-render dynamic content
     if (typeof renderDashboard === 'function') {

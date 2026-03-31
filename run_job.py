@@ -1,4 +1,4 @@
-"""FinanzBro - Cloud Run Job Entry Point.
+"""FinanceBro - Cloud Run Job Entry Point.
 
 Standalone-Script für den täglichen Cloud Run Job:
   1. Voller Portfolio-Refresh (Parqet, FMP, yfinance, Technicals, Scoring)
@@ -16,12 +16,12 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     stream=sys.stdout,
 )
-logger = logging.getLogger("finanzbro.job")
+logger = logging.getLogger("financebro.job")
 
 
 async def run_job():
     """Führt den kompletten Job-Zyklus aus."""
-    logger.info("🚀 FinanzBro Cloud Run Job gestartet")
+    logger.info("🚀 FinanceBro Cloud Run Job gestartet")
 
     from state import portfolio_data
 
@@ -69,7 +69,7 @@ async def run_job():
     else:
         logger.info(f"📧 Weekly Digest übersprungen (nur Freitags, heute: {_now.strftime('%A')})")
 
-    logger.info("🏁 FinanzBro Cloud Run Job beendet")
+    logger.info("🏁 FinanceBro Cloud Run Job beendet")
 
 
 if __name__ == "__main__":

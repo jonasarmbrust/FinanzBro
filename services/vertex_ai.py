@@ -1,4 +1,4 @@
-"""FinanzBro - Vertex AI Service.
+"""FinanceBro - Vertex AI Service.
 
 Zentrales Modul für Google Gemini / Vertex AI:
   - Client-Erstellung (Vertex AI mit Service Account ODER API Key Fallback)
@@ -173,7 +173,7 @@ async def cache_portfolio_context(summary) -> Optional[str]:
                             parts=[Part(text=context_text)],
                         )
                     ],
-                    "display_name": "finanzbro-portfolio",
+                    "display_name": "financebro-portfolio",
                     "ttl": "14400s",  # 4 Stunden (bis zum nächsten Refresh)
                 },
             ),

@@ -1,4 +1,4 @@
-"""FinanzBro - Authentifizierungs-Middleware.
+"""FinanceBro - Authentifizierungs-Middleware.
 
 Basic Auth Schutz für das Dashboard und API-Endpoints.
 Der Telegram-Webhook ist davon ausgenommen (hat eigenes Secret).
@@ -55,5 +55,5 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
         return Response(
             content="Zugang verweigert",
             status_code=401,
-            headers={"WWW-Authenticate": 'Basic realm="FinanzBro"'},
+            headers={"WWW-Authenticate": 'Basic realm="FinanceBro"'},
         )

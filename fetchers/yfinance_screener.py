@@ -1,4 +1,4 @@
-"""FinanzBro - yFinance Stock Screener
+"""FinanceBro - yFinance Stock Screener
 
 Ersetzt den FMP-basierten Tech-Picks Screener (discover_tech_stocks).
 Nutzt yfinance EquityQuery für programmatisches Aktien-Screening.

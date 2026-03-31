@@ -1,4 +1,4 @@
-"""FinanzBro - SSE Streaming Route.
+"""FinanceBro - SSE Streaming Route.
 
 Server-Sent Events Endpoint für Live-Preis-Updates (yFinance WS + Portfolio).
 Alle Preise werden vor dem Senden ans Frontend in EUR konvertiert.

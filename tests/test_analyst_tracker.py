@@ -1,4 +1,4 @@
-"""FinanzBro - Tests für den Analyst Track Record Service.
+"""FinanceBro - Tests für den Analyst Track Record Service.
 
 Tests für:
   - Track Record Berechnung (Bullish-Analyst korrekt/falsch)

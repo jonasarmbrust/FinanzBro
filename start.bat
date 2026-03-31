@@ -1,6 +1,6 @@
 @echo off
-title FinanzBro Dashboard
+title FinanceBro Dashboard
 cd /d "%~dp0"
-echo Starting FinanzBro...
+echo Starting FinanceBro...
 start "" http://localhost:8000
 .\venv\Scripts\python.exe main.py

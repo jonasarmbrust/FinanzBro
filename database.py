@@ -1,10 +1,10 @@
-"""FinanzBro - SQLite Persistence Layer
+"""FinanceBro - SQLite Persistence Layer
 
 Ersetzt JSON-Dateien für persistente Daten:
   - Portfolio-Snapshots (tägliche Werte)
   - Score-History (Ticker-Scores pro Analyse)
 
-Datenbank: cache/finanzbro.db
+Datenbank: cache/financebro.db
 Für Cloud Run Persistenz: Litestream → GCS Backup.
 """
 import json
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 TZ_BERLIN = ZoneInfo("Europe/Berlin")
 
-DB_PATH = settings.CACHE_DIR / "finanzbro.db"
+DB_PATH = settings.CACHE_DIR / "financebro.db"
 
 # Thread-local connections (sqlite3 ist nicht thread-safe)
 _local = threading.local()
@@ -72,6 +72,64 @@ def init_db():
             portfolio_rating TEXT NOT NULL,
             num_positions INTEGER NOT NULL,
             avg_confidence REAL DEFAULT 0
+        );
+
+        -- ── Shadow Portfolio Agent Tables ──────────────────────────
+
+        CREATE TABLE IF NOT EXISTS shadow_portfolio (
+            ticker TEXT PRIMARY KEY,
+            name TEXT NOT NULL DEFAULT '',
+            shares REAL NOT NULL DEFAULT 0,
+            avg_cost_eur REAL NOT NULL DEFAULT 0,
+            current_price_eur REAL NOT NULL DEFAULT 0,
+            sector TEXT NOT NULL DEFAULT 'Unknown',
+            first_bought TEXT NOT NULL,
+            last_updated TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS shadow_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            action TEXT NOT NULL,
+            ticker TEXT NOT NULL,
+            name TEXT NOT NULL DEFAULT '',
+            shares REAL NOT NULL,
+            price_eur REAL NOT NULL,
+            total_eur REAL NOT NULL,
+            reason TEXT NOT NULL DEFAULT '',
+            score REAL DEFAULT NULL,
+            confidence REAL DEFAULT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_shadow_tx_ticker ON shadow_transactions(ticker);
+        CREATE INDEX IF NOT EXISTS idx_shadow_tx_timestamp ON shadow_transactions(timestamp);
+
+        CREATE TABLE IF NOT EXISTS shadow_performance (
+            date TEXT PRIMARY KEY,
+            total_value_eur REAL NOT NULL,
+            cash_eur REAL NOT NULL,
+            invested_eur REAL NOT NULL,
+            pnl_eur REAL NOT NULL,
+            pnl_pct REAL NOT NULL,
+            num_positions INTEGER NOT NULL,
+            real_portfolio_value REAL DEFAULT 0,
+            timestamp TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS shadow_decision_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            cycle_summary TEXT NOT NULL,
+            trades_executed INTEGER NOT NULL DEFAULT 0,
+            candidates_evaluated INTEGER NOT NULL DEFAULT 0,
+            ai_reasoning TEXT NOT NULL DEFAULT '',
+            total_value_eur REAL NOT NULL DEFAULT 0,
+            cash_eur REAL NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS shadow_meta (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
         );
     """)
     conn.commit()
@@ -292,3 +350,254 @@ def migrate_json_to_sqlite():
 
 # Automatisch Tabellen erstellen beim Import
 init_db()
+
+
+# ─── Shadow Portfolio Agent ─────────────────────────────────
+
+def shadow_get_meta(key: str, default: str = "") -> str:
+    """Liest einen Shadow-Meta-Wert."""
+    conn = _get_conn()
+    row = conn.execute("SELECT value FROM shadow_meta WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def shadow_set_meta(key: str, value: str):
+    """Setzt einen Shadow-Meta-Wert."""
+    conn = _get_conn()
+    conn.execute(
+        "INSERT INTO shadow_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (key, value),
+    )
+    conn.commit()
+
+
+def shadow_get_cash() -> float:
+    """Gibt den aktuellen Cash-Bestand des Shadow-Portfolios zurück."""
+    val = shadow_get_meta("cash_eur", "0")
+    try:
+        return float(val)
+    except ValueError:
+        return 0.0
+
+
+def shadow_set_cash(amount: float):
+    """Setzt den Cash-Bestand."""
+    shadow_set_meta("cash_eur", str(round(amount, 2)))
+
+
+def shadow_get_positions() -> list[dict]:
+    """Gibt alle Shadow-Positionen zurück."""
+    conn = _get_conn()
+    rows = conn.execute("SELECT * FROM shadow_portfolio ORDER BY ticker").fetchall()
+    return [dict(r) for r in rows]
+
+
+def shadow_upsert_position(
+    ticker: str,
+    name: str,
+    shares: float,
+    avg_cost_eur: float,
+    current_price_eur: float,
+    sector: str = "Unknown",
+):
+    """Erstellt oder aktualisiert eine Shadow-Position."""
+    conn = _get_conn()
+    now = datetime.now(tz=TZ_BERLIN).isoformat()
+    conn.execute(
+        """INSERT INTO shadow_portfolio (ticker, name, shares, avg_cost_eur, current_price_eur, sector, first_bought, last_updated)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(ticker) DO UPDATE SET
+             name=excluded.name,
+             shares=excluded.shares,
+             avg_cost_eur=excluded.avg_cost_eur,
+             current_price_eur=excluded.current_price_eur,
+             sector=excluded.sector,
+             last_updated=excluded.last_updated""",
+        (ticker, name, round(shares, 6), round(avg_cost_eur, 4), round(current_price_eur, 4), sector, now, now),
+    )
+    conn.commit()
+
+
+def shadow_remove_position(ticker: str):
+    """Entfernt eine Shadow-Position (bei Komplett-Verkauf)."""
+    conn = _get_conn()
+    conn.execute("DELETE FROM shadow_portfolio WHERE ticker = ?", (ticker,))
+    conn.commit()
+
+
+def shadow_add_transaction(
+    action: str,
+    ticker: str,
+    name: str,
+    shares: float,
+    price_eur: float,
+    total_eur: float,
+    reason: str = "",
+    score: Optional[float] = None,
+    confidence: Optional[float] = None,
+):
+    """Speichert eine Shadow-Transaktion."""
+    conn = _get_conn()
+    ts = datetime.now(tz=TZ_BERLIN).isoformat()
+    conn.execute(
+        """INSERT INTO shadow_transactions
+           (timestamp, action, ticker, name, shares, price_eur, total_eur, reason, score, confidence)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (ts, action, ticker, name, round(shares, 6), round(price_eur, 4),
+         round(total_eur, 2), reason, score, confidence),
+    )
+    conn.commit()
+
+
+def shadow_get_transactions(limit: int = 50) -> list[dict]:
+    """Gibt die letzten Shadow-Transaktionen zurück."""
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT * FROM shadow_transactions ORDER BY timestamp DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def shadow_save_performance(
+    total_value_eur: float,
+    cash_eur: float,
+    invested_eur: float,
+    pnl_eur: float,
+    pnl_pct: float,
+    num_positions: int,
+    real_portfolio_value: float = 0,
+):
+    """Speichert einen täglichen Shadow-Performance-Snapshot."""
+    today = datetime.now(tz=TZ_BERLIN).strftime("%Y-%m-%d")
+    ts = datetime.now(tz=TZ_BERLIN).isoformat()
+    conn = _get_conn()
+    conn.execute(
+        """INSERT INTO shadow_performance
+           (date, total_value_eur, cash_eur, invested_eur, pnl_eur, pnl_pct, num_positions, real_portfolio_value, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(date) DO UPDATE SET
+             total_value_eur=excluded.total_value_eur,
+             cash_eur=excluded.cash_eur,
+             invested_eur=excluded.invested_eur,
+             pnl_eur=excluded.pnl_eur,
+             pnl_pct=excluded.pnl_pct,
+             num_positions=excluded.num_positions,
+             real_portfolio_value=excluded.real_portfolio_value,
+             timestamp=excluded.timestamp""",
+        (today, round(total_value_eur, 2), round(cash_eur, 2), round(invested_eur, 2),
+         round(pnl_eur, 2), round(pnl_pct, 4), num_positions, round(real_portfolio_value, 2), ts),
+    )
+    conn.commit()
+
+
+def shadow_get_performance(days: int = 90) -> list[dict]:
+    """Gibt die Shadow-Performance-Historie zurück."""
+    conn = _get_conn()
+    if days > 0:
+        cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        rows = conn.execute(
+            "SELECT * FROM shadow_performance WHERE date >= ? ORDER BY date",
+            (cutoff,),
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM shadow_performance ORDER BY date").fetchall()
+    return [dict(r) for r in rows]
+
+
+def shadow_add_decision_log(
+    cycle_summary: str,
+    trades_executed: int,
+    candidates_evaluated: int,
+    ai_reasoning: str,
+    total_value_eur: float,
+    cash_eur: float,
+):
+    """Speichert einen Agent-Zyklusbericht."""
+    conn = _get_conn()
+    ts = datetime.now(tz=TZ_BERLIN).isoformat()
+    conn.execute(
+        """INSERT INTO shadow_decision_log
+           (timestamp, cycle_summary, trades_executed, candidates_evaluated, ai_reasoning, total_value_eur, cash_eur)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (ts, cycle_summary, trades_executed, candidates_evaluated, ai_reasoning,
+         round(total_value_eur, 2), round(cash_eur, 2)),
+    )
+    conn.commit()
+
+
+def shadow_get_decision_log(limit: int = 20) -> list[dict]:
+    """Gibt die letzten Zyklusberichte zurück."""
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT * FROM shadow_decision_log ORDER BY timestamp DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def shadow_reset():
+    """Setzt das komplette Shadow-Portfolio zurück."""
+    conn = _get_conn()
+    conn.executescript("""
+        DELETE FROM shadow_portfolio;
+        DELETE FROM shadow_transactions;
+        DELETE FROM shadow_performance;
+        DELETE FROM shadow_decision_log;
+        DELETE FROM shadow_meta WHERE key != 'config_json';
+    """)
+    conn.commit()
+    logger.info("🗑️ Shadow-Portfolio vollständig zurückgesetzt")
+
+
+# ─── Shadow Config ────────────────────────────────────────────
+
+# Standardwerte für Agenten-Regeln
+SHADOW_CONFIG_DEFAULTS: dict = {
+    "max_positions": 20,
+    "max_weight_pct": 10.0,
+    "min_cash_pct": 5.0,
+    "min_trade_eur": 500.0,
+    "max_trades_per_cycle": 3,
+    "max_sector_pct": 35.0,
+    "min_buy_score": 60.0,
+    "strategy_mode": "balanced",  # "aggressive" | "balanced" | "conservative"
+}
+
+
+def shadow_get_config() -> dict:
+    """Gibt die aktuellen Agenten-Konfiguration zurück (mit Defaults)."""
+    import json as _json
+    raw = shadow_get_meta("config_json", "")
+    if raw:
+        try:
+            saved = _json.loads(raw)
+            # Merge mit Defaults (neue Keys werden ergänzt)
+            result = dict(SHADOW_CONFIG_DEFAULTS)
+            result.update(saved)
+            return result
+        except Exception:
+            pass
+    return dict(SHADOW_CONFIG_DEFAULTS)
+
+
+def shadow_save_config(config: dict):
+    """Speichert die Agenten-Konfiguration (nur bekannte Keys werden übernommen)."""
+    import json as _json
+    current = shadow_get_config()
+    # Nur bekannte Keys übernehmen + Typen erzwingen
+    for key in SHADOW_CONFIG_DEFAULTS:
+        if key in config:
+            default_val = SHADOW_CONFIG_DEFAULTS[key]
+            try:
+                if isinstance(default_val, int):
+                    current[key] = int(config[key])
+                elif isinstance(default_val, float):
+                    current[key] = float(config[key])
+                else:
+                    current[key] = str(config[key])
+            except (ValueError, TypeError):
+                pass  # Ungültige Werte ignorieren
+    shadow_set_meta("config_json", _json.dumps(current))
+    logger.info(f"⚙️ Shadow-Config gespeichert: {current}")
+

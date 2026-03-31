@@ -1,4 +1,4 @@
-"""FinanzBro - FastAPI Backend
+"""FinanceBro - FastAPI Backend
 
 Hauptserver: App-Erstellung, Lifespan-Management und Router-Einbindung.
 Die gesamte Geschäftslogik lebt in services/ und routes/.
@@ -26,6 +26,7 @@ from routes.analytics import router as analytics_router
 from routes.telegram import router as telegram_router
 from routes.parqet_oauth import router as parqet_oauth_router
 from routes.demo import router as demo_router
+from routes.shadow_portfolio import router as shadow_portfolio_router
 
 # Structured Logging (JSON in production, colored console in dev)
 setup_logging(settings.ENVIRONMENT)
@@ -78,7 +79,7 @@ async def reload_portfolio_and_subscribe():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """App startup/shutdown."""
-    logger.info("\U0001f680 FinanzBro startet...")
+    logger.info("\U0001f680 FinanceBro startet...")
     logger.info(f"   Environment: {settings.ENVIRONMENT}")
     logger.info(f"   Port: {settings.SERVER_PORT}")
     logger.info(f"   Demo-Mode: {settings.demo_mode}")
@@ -218,6 +219,27 @@ async def lifespan(app: FastAPI):
         else:
             logger.info("🤖 AI Finance Agent übersprungen (Telegram nicht konfiguriert)")
 
+        # Shadow Portfolio Agent: Autonomer Zyklus taeglich Mo-Fr 17:00 CET
+        async def _run_shadow_agent():
+            try:
+                from services.shadow_agent import run_shadow_agent_cycle
+                result = await run_shadow_agent_cycle()
+                logger.info(
+                    f"🤖 Shadow Agent: Zyklus done — "
+                    f"{result.get('trades_executed', []).__len__()} Trades"
+                )
+            except Exception as e:
+                logger.warning(f"Shadow Agent Zyklus fehlgeschlagen: {e}")
+
+        if settings.gemini_configured:
+            scheduler.add_job(
+                _run_shadow_agent, "cron",
+                hour=17, minute=0,
+                day_of_week="mon-fri",
+                id="shadow_agent",
+            )
+            logger.info("🤖 Shadow Portfolio Agent geplant: Mo-Fr 17:00 CET")
+
         # Telegram Webhook registrieren (wenn auf Cloud Run)
         if settings.telegram_configured and settings.ENVIRONMENT == "production":
             async def _register_webhook():
@@ -291,12 +313,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.debug(f"yFinance WS Shutdown ignoriert: {e}")
         
-    logger.info("FinanzBro beendet.")
+    logger.info("FinanceBro beendet.")
 
 
 # Create FastAPI app
 app = FastAPI(
-    title="FinanzBro",
+    title="FinanceBro",
     description="Aktienportfolio Dashboard & Advisor",
     version="1.0.0",
     lifespan=lifespan,
@@ -329,6 +351,7 @@ app.include_router(analytics_router)
 app.include_router(telegram_router)
 app.include_router(parqet_oauth_router)
 app.include_router(demo_router)
+app.include_router(shadow_portfolio_router)
 
 
 # Health Check (für Cloud Run Startup/Liveness Probes)

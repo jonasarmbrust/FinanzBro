@@ -1,4 +1,4 @@
-"""FinanzBro - Yahoo Finance Fetcher
+"""FinanceBro - Yahoo Finance Fetcher
 
 Holt Analyst Recommendations, Insider-Transaktionen, ESG Risk Scores
 und Earnings/Dividenden-Daten über die yfinance Library.

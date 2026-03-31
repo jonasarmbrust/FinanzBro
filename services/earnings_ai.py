@@ -1,4 +1,4 @@
-"""FinanzBro - Earnings AI Analysis (Gemini 2.5 Pro).
+"""FinanceBro - Earnings AI Analysis (Gemini 2.5 Pro).
 
 Analysiert die letzten/nächsten Earnings von Portfolio-Aktien
 via Google Search Grounding. Ein API-Call für alle Ticker.

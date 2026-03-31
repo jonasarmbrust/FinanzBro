@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinanzBro – Portfolio Dashboard</title>
+    <title>FinanceBro – Portfolio Dashboard</title>
     <meta name="description"
         content="Intelligent stock portfolio dashboard with Buy/Hold/Sell ratings, rebalancing recommendations and tech stock research.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/styles.css?v=2">
 </head>
 
 <body>
@@ -22,93 +22,110 @@
     <!-- Demo Banner -->
     <div class="demo-banner" id="demoBanner" data-i18n="demoBanner">🎭 Demo-Modus — Fiktive Daten zu Präsentationszwecken</div>
 
-    <!-- Header -->
-    <header class="header" id="header">
-        <div class="header-left">
-            <h1 class="logo">
+    <!-- Full Screen App Layout -->
+    <div class="app-layout">
+        
+        <!-- ==================== SIDEBAR ==================== -->
+        <aside class="app-sidebar">
+            <div class="sidebar-logo">
                 <span class="logo-icon"><i data-lucide="bar-chart-3"></i></span>
-                <span class="logo-text">FinanzBro</span>
-            </h1>
-            <span class="demo-badge" id="demoBadge" style="display:none;">DEMO</span>
-        </div>
-        <div class="header-center">
-            <div class="portfolio-value" id="portfolioValue">
-                <span class="value-label" data-i18n="portfolioValue">Portfoliowert</span>
-                <span class="value-amount" id="totalValue">$0.00</span>
+                <span class="logo-text">FinanceBro</span>
             </div>
-            <div class="portfolio-pnl" id="portfolioPnl">
-                <span class="pnl-amount" id="totalPnl">+$0.00</span>
-                <span class="pnl-percent" id="totalPnlPct">(+0.0%)</span>
-            </div>
-            <span class="cash-info" id="cashInfo"></span>
-            <div class="portfolio-pnl daily-change" id="dailyChange">
-                <span class="pnl-label" data-i18n="today">Heute:</span>
-                <span class="pnl-amount" id="dailyPnl">€0.00</span>
-                <span class="pnl-percent" id="dailyPnlPct">(0.0%)</span>
-                <span class="header-indices" id="headerIndices"></span>
-            </div>
-        </div>
-        <div class="header-right">
-            <span class="last-update" id="lastUpdate">–</span>
-            <button class="btn-lang" id="langToggle" onclick="switchLanguage(currentLang === 'de' ? 'en' : 'de')"
-                title="Deutsch / English">DE</button>
-            <button class="btn-theme" id="themeToggle" onclick="toggleTheme()"
-                data-i18n-title="toggleTheme" title="Farbschema wechseln"><i data-lucide="moon"></i></button>
-            <button class="btn-currency" id="currencyToggle" onclick="toggleCurrency()"
-                data-i18n-title="toggleCurrency" title="Währung wechseln">EUR</button>
-            <!-- Action Dropdown -->
-            <div class="action-dropdown" id="actionDropdown">
-                <button class="action-dropdown-toggle" onclick="toggleActionMenu()">
-                    <i data-lucide="menu"></i> <span data-i18n="actions">Aktionen</span>
+            
+            <nav class="sidebar-nav" id="tabs">
+                <button class="nav-btn active" data-tab="overview" onclick="switchTab('overview')">
+                    <i data-lucide="trending-up"></i> <span data-i18n="overview">Übersicht</span>
                 </button>
-                <div class="action-dropdown-menu" id="actionMenu">
-                    <button class="action-dropdown-item" id="btnUploadCsv" onclick="showCsvUpload()">
-                        <i data-lucide="upload"></i> <span data-i18n="uploadCsv">CSV Import</span>
-                    </button>
-                    <button class="action-dropdown-item" id="btnUpdateParqet" onclick="updateParqet()">
-                        <i data-lucide="refresh-cw"></i> <span data-i18n="updateParqet">Update Parqet</span>
-                    </button>
-                    <button class="action-dropdown-item" id="btnTelegramReport" onclick="triggerReport()">
-                        <i data-lucide="send"></i> <span data-i18n="telegramReport">Telegram Report</span>
-                    </button>
-                    <div class="action-dropdown-divider"></div>
-                    <button class="action-dropdown-item" id="btnRefresh" onclick="refreshData()">
-                        <i data-lucide="microscope"></i> <span data-i18n="fullAnalysis">Komplette Analyse</span>
-                    </button>
-                    <div class="action-dropdown-divider"></div>
-                    <button class="action-dropdown-item" id="btnDemo" onclick="toggleDemo()">
-                        <i data-lucide="drama"></i> <span data-i18n="demoMode">Demo-Modus</span>
-                    </button>
+                <button class="nav-btn" data-tab="analyse" onclick="switchTab('analyse')">
+                    <i data-lucide="pie-chart"></i> <span data-i18n="analysis">Analyse</span>
+                </button>
+                <button class="nav-btn" data-tab="historie" onclick="switchTab('historie')">
+                    <i data-lucide="history"></i> <span data-i18n="history">Historie</span>
+                </button>
+                <button class="nav-btn" data-tab="rebalancing" onclick="switchTab('rebalancing')">
+                    <i data-lucide="scale"></i> <span data-i18n="rebalancing">Rebalancing</span> <span class="tab-badge" id="rebalancingBadge"></span>
+                </button>
+                <button class="nav-btn" data-tab="techpicks" onclick="switchTab('techpicks')">
+                    <i data-lucide="rocket"></i> <span data-i18n="techPicks">Tech Picks</span>
+                </button>
+                <button class="nav-btn" data-tab="advisor" onclick="switchTab('advisor')">
+                    <i data-lucide="brain"></i> <span data-i18n="aiAdvisor">AI Advisor</span>
+                </button>
+                <button class="nav-btn" data-tab="shadow" onclick="switchTab('shadow')">
+                    <i data-lucide="bot"></i> <span>Shadow Agent</span>
+                </button>
+                <div class="nav-indicator" id="tabIndicator"></div>
+            </nav>
+        </aside>
+
+        <!-- ==================== MAIN CONTENT AREA ==================== -->
+        <div class="app-main-content">
+            
+            <!-- App Header (Controls) -->
+            <header class="app-header" id="header">
+                <div class="header-left">
+                    <span class="demo-badge" id="demoBadge" style="display:none;">DEMO</span>
+                </div>
+                <div class="header-right">
+                    <span class="last-update" id="lastUpdate">–</span>
+                    <button class="btn-lang" id="langToggle" onclick="switchLanguage(currentLang === 'de' ? 'en' : 'de')"
+                        title="Deutsch / English">DE</button>
+                    <button class="btn-theme" id="themeToggle" onclick="toggleTheme()"
+                        data-i18n-title="toggleTheme" title="Farbschema wechseln"><i data-lucide="moon"></i></button>
+                    <button class="btn-currency" id="currencyToggle" onclick="toggleCurrency()"
+                        data-i18n-title="toggleCurrency" title="Währung wechseln">EUR</button>
+                    
+                    <div class="action-dropdown" id="actionDropdown">
+                        <button class="action-dropdown-toggle" onclick="toggleActionMenu()">
+                            <i data-lucide="menu"></i> <span data-i18n="actions">Aktionen</span>
+                        </button>
+                        <div class="action-dropdown-menu" id="actionMenu">
+                            <button class="action-dropdown-item" id="btnUploadCsv" onclick="showCsvUpload()">
+                                <i data-lucide="upload"></i> <span data-i18n="uploadCsv">CSV Import</span>
+                            </button>
+                            <button class="action-dropdown-item" id="btnUpdateParqet" onclick="updateParqet()">
+                                <i data-lucide="refresh-cw"></i> <span data-i18n="updateParqet">Update Parqet</span>
+                            </button>
+                            <button class="action-dropdown-item" id="btnTelegramReport" onclick="triggerReport()">
+                                <i data-lucide="send"></i> <span data-i18n="telegramReport">Telegram Report</span>
+                            </button>
+                            <div class="action-dropdown-divider"></div>
+                            <button class="action-dropdown-item" id="btnRefresh" onclick="refreshData()">
+                                <i data-lucide="microscope"></i> <span data-i18n="fullAnalysis">Komplette Analyse</span>
+                            </button>
+                            <div class="action-dropdown-divider"></div>
+                            <button class="action-dropdown-item" id="btnDemo" onclick="toggleDemo()">
+                                <i data-lucide="drama"></i> <span data-i18n="demoMode">Demo-Modus</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Scrollable Area -->
+            <main class="main">
+                <!-- V2 Balance Card -->
+                <section class="v2-balance-card">
+            <div class="hero-portfolio-value" id="portfolioValue">
+                <span class="value-label" data-i18n="portfolioValue">Portfoliowert</span>
+                <div class="value-amount" id="totalValue">$0.00</div>
+            </div>
+            <div class="hero-pnl-row">
+                <div class="portfolio-pnl" id="portfolioPnl">
+                    <span class="pnl-amount" id="totalPnl">+$0.00</span>
+                    <span class="pnl-percent" id="totalPnlPct">(+0.0%)</span>
+                </div>
+                <div class="pnl-divider"></div>
+                <div class="portfolio-pnl daily-change" id="dailyChange">
+                    <span class="pnl-label" data-i18n="today">Heute:</span>
+                    <span class="pnl-amount" id="dailyPnl">€0.00</span>
+                    <span class="pnl-percent" id="dailyPnlPct">(0.0%)</span>
                 </div>
             </div>
-        </div>
-    </header>
+            <div class="cash-info" id="cashInfo"></div>
+            <div class="header-indices" id="headerIndices"></div>
+        </section>
 
-    <!-- Navigation Tabs -->
-    <nav class="tabs" id="tabs">
-        <button class="tab active" data-tab="overview" onclick="switchTab('overview')">
-            <i data-lucide="trending-up"></i> <span data-i18n="overview">Übersicht</span>
-        </button>
-        <button class="tab" data-tab="analyse" onclick="switchTab('analyse')">
-            <i data-lucide="pie-chart"></i> <span data-i18n="analysis">Analyse</span>
-        </button>
-        <button class="tab" data-tab="historie" onclick="switchTab('historie')">
-            <i data-lucide="history"></i> <span data-i18n="history">Historie</span>
-        </button>
-        <button class="tab" data-tab="rebalancing" onclick="switchTab('rebalancing')">
-            <i data-lucide="scale"></i> <span data-i18n="rebalancing">Rebalancing</span> <span class="tab-badge" id="rebalancingBadge"></span>
-        </button>
-        <button class="tab" data-tab="techpicks" onclick="switchTab('techpicks')">
-            <i data-lucide="rocket"></i> <span data-i18n="techPicks">Tech Picks</span>
-        </button>
-        <button class="tab" data-tab="advisor" onclick="switchTab('advisor')">
-            <i data-lucide="brain"></i> <span data-i18n="aiAdvisor">AI Advisor</span>
-        </button>
-        <div class="tab-indicator" id="tabIndicator"></div>
-    </nav>
-
-    <!-- Main Content -->
-    <main class="main">
         <!-- Skeleton Loading State -->
         <div id="skeletonOverlay" style="display:none;">
             <div class="stats-row">
@@ -132,23 +149,53 @@
                 <div class="ai-insight-text" id="aiInsightText"></div>
             </div>
 
-            <!-- Stats Row -->
-            <div class="stats-row" id="statsRow">
-                <div class="stat-card stagger-in">
-                    <span class="stat-label" data-i18n="positions">Positionen</span>
-                    <span class="stat-value" id="statPositions">0</span>
+            <div class="v2-dashboard-grid">
+                <div class="v2-dashboard-left">
+                    <!-- Main Performance Chart (V2) -->
+                    <div class="chart-card v2-performance-card performanceChartCard" style="margin-bottom: 1rem;">
+                        <div class="chart-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                            <h3 class="chart-title" style="margin:0;">Portfolio Performance</h3>
+                            <div class="filter-buttons">
+                                <button class="filter-btn" onclick="loadPerformanceChart(30, this)">1M</button>
+                                <button class="filter-btn active" onclick="loadPerformanceChart(90, this)">3M</button>
+                                <button class="filter-btn" onclick="loadPerformanceChart(365, this)">1Y</button>
+                                <button class="filter-btn" onclick="loadPerformanceChart(0, this)">MAX</button>
+                            </div>
+                        </div>
+                        <div class="chart-container" style="height: 250px;">
+                            <canvas class="performance-chart-canvas"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Stats Row -->
+                    <div class="stats-row" id="statsRow">
+                        <div class="stat-card stagger-in">
+                            <span class="stat-label" data-i18n="positions">Positionen</span>
+                            <span class="stat-value" id="statPositions">0</span>
+                        </div>
+                        <div class="stat-card stat-buy stagger-in">
+                            <span class="stat-label">🟢 Buy</span>
+                            <span class="stat-value" id="statBuy">0</span>
+                        </div>
+                        <div class="stat-card stat-hold stagger-in">
+                            <span class="stat-label">🟡 Hold</span>
+                            <span class="stat-value" id="statHold">0</span>
+                        </div>
+                        <div class="stat-card stat-sell stagger-in">
+                            <span class="stat-label">🔴 Sell</span>
+                            <span class="stat-value" id="statSell">0</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card stat-buy stagger-in">
-                    <span class="stat-label">🟢 Buy</span>
-                    <span class="stat-value" id="statBuy">0</span>
-                </div>
-                <div class="stat-card stat-hold stagger-in">
-                    <span class="stat-label">🟡 Hold</span>
-                    <span class="stat-value" id="statHold">0</span>
-                </div>
-                <div class="stat-card stat-sell stagger-in">
-                    <span class="stat-label">🔴 Sell</span>
-                    <span class="stat-value" id="statSell">0</span>
+
+                <div class="v2-dashboard-right">
+                    <!-- Sector Allocation (Moved to Frontpage for V2) -->
+                    <div class="chart-card analyse-wide" style="height: 100%;">
+                        <h3 class="chart-title" data-i18n="sectorAllocation">🏗️ Sektor-Allokation</h3>
+                        <div class="chart-container">
+                            <canvas id="sectorChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -213,7 +260,6 @@
                                 <th class="sortable" onclick="sortTable('score')"><span data-i18n="score">Score</span> <span class="sort-arrow"
                                         id="sort-score"></span></th>
                                 <th data-i18n="rating">Rating</th>
-                                <th data-i18n="details">Details</th>
                             </tr>
                         </thead>
                         <tbody id="portfolioTableBody">
@@ -227,15 +273,26 @@
 
         <!-- Tab: Analysis -->
         <section class="tab-content" id="tab-analyse">
-            <!-- Sector Allocation + Risk -->
+            <!-- Row 1: Portfolio Performance & Risk Profile -->
             <div class="analyse-row">
-                <div class="chart-card analyse-wide">
-                    <h3 class="chart-title" data-i18n="sectorAllocation">🏗️ Sektor-Allokation</h3>
-                    <div class="chart-container">
-                        <canvas id="sectorChart"></canvas>
+                <!-- Portfolio Performance -->
+                <div class="chart-card analyse-wide performanceChartCard" style="width: 100%;">
+                    <div class="chart-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                        <h3 class="chart-title" style="margin:0;">Portfolio Performance</h3>
+                        <div class="filter-buttons">
+                            <button class="filter-btn" onclick="loadPerformanceChart(30, this)">1M</button>
+                            <button class="filter-btn active" onclick="loadPerformanceChart(90, this)">3M</button>
+                            <button class="filter-btn" onclick="loadPerformanceChart(365, this)">1Y</button>
+                            <button class="filter-btn" onclick="loadPerformanceChart(0, this)">MAX</button>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas class="performance-chart-canvas"></canvas>
                     </div>
                 </div>
-                <div class="chart-card analyse-narrow">
+
+                <!-- Risk Profile -->
+                <div class="chart-card analyse-narrow" style="width: 100%;">
                     <h3 class="chart-title" data-i18n="riskProfile">🛡️ Risiko-Profil</h3>
                     <div id="riskContainer"></div>
                 </div>
@@ -437,9 +494,301 @@
                 </div>
             </div>
         </section>
+
+        <!-- Tab: Shadow Portfolio Agent -->
+        <section class="tab-content" id="tab-shadow">
+            <div class="shadow-header">
+                <div class="shadow-title-row">
+                    <div>
+                        <h2 class="section-title">🤖 Shadow Portfolio Agent</h2>
+                        <p class="shadow-subtitle">Autonomer AI-Agent der selbstständig ein fiktives Portfolio verwaltet</p>
+                    </div>
+                    <div class="shadow-actions">
+                        <button class="shadow-run-btn" id="shadowRunBtn" onclick="runShadowAgent()">
+                            <i data-lucide="play"></i>
+                            <span class="shadow-btn-text">Agent starten</span>
+                            <span class="shadow-btn-loading" style="display:none;">⏳ Läuft...</span>
+                        </button>
+                        <button class="shadow-reset-btn" id="shadowResetBtn" onclick="resetShadowPortfolio()" title="Portfolio zurücksetzen">
+                            <i data-lucide="rotate-ccw"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shadow KPI Row -->
+            <div class="shadow-kpi-row" id="shadowKpiRow">
+                <div class="shadow-kpi-card">
+                    <span class="shadow-kpi-label">Gesamtwert</span>
+                    <span class="shadow-kpi-value" id="shadowTotalValue">—</span>
+                </div>
+                <div class="shadow-kpi-card">
+                    <span class="shadow-kpi-label">P&amp;L gesamt</span>
+                    <span class="shadow-kpi-value" id="shadowPnl">—</span>
+                    <span class="shadow-kpi-sub" id="shadowPnlPct"></span>
+                </div>
+                <div class="shadow-kpi-card">
+                    <span class="shadow-kpi-label">Cash</span>
+                    <span class="shadow-kpi-value" id="shadowCash">—</span>
+                    <span class="shadow-kpi-sub" id="shadowCashPct"></span>
+                </div>
+                <div class="shadow-kpi-card">
+                    <span class="shadow-kpi-label">Positionen</span>
+                    <span class="shadow-kpi-value" id="shadowPositions">—</span>
+                </div>
+            </div>
+
+            <!-- Shadow Main Grid -->
+            <div class="shadow-main-grid">
+                <!-- Left: Chart + Positions -->
+                <div class="shadow-left">
+                    <!-- Performance Chart -->
+                    <div class="chart-card shadow-chart-card">
+                        <div class="chart-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                            <h3 class="chart-title" style="margin:0;">📈 Shadow vs. Echtes Portfolio</h3>
+                            <div class="filter-buttons">
+                                <button class="filter-btn" onclick="loadShadowPerformanceChart(30, this)">1M</button>
+                                <button class="filter-btn active" onclick="loadShadowPerformanceChart(90, this)">3M</button>
+                                <button class="filter-btn" onclick="loadShadowPerformanceChart(0, this)">MAX</button>
+                            </div>
+                        </div>
+                        <div class="chart-container" style="height: 240px;">
+                            <canvas id="shadowPerformanceChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Shadow Positions Table -->
+                    <div class="table-card shadow-positions-card">
+                        <h3 class="table-title">📋 Shadow-Positionen</h3>
+                        <div class="table-responsive">
+                            <table class="portfolio-table" id="shadowPositionsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Aktie</th>
+                                        <th>Stk.</th>
+                                        <th>Kurs (EUR)</th>
+                                        <th>Wert</th>
+                                        <th>Gewicht</th>
+                                        <th>P&amp;L</th>
+                                        <th>Sektor</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shadowPositionsBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="shadow-empty" id="shadowPositionsEmpty" style="display:none;">
+                            <i data-lucide="inbox"></i>
+                            <p>Noch keine Positionen — Agent starten um zu initialisieren.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Transactions + Decision Log -->
+                <div class="shadow-right">
+                    <!-- Letzter AI-Entscheid -->
+                    <div class="chart-card shadow-decision-card" id="shadowLastDecision" style="display:none;">
+                        <div class="shadow-decision-header">
+                            <i data-lucide="sparkles"></i>
+                            <h3 class="chart-title" style="margin:0;">Letzter AI-Entscheid</h3>
+                        </div>
+                        <div class="shadow-decision-body" id="shadowDecisionBody"></div>
+                    </div>
+
+                    <!-- Transaktionshistorie -->
+                    <div class="chart-card shadow-tx-card">
+                        <h3 class="chart-title">🔄 Transaktionshistorie</h3>
+                        <div class="shadow-tx-list" id="shadowTxList">
+                            <div class="shadow-loading">Wird geladen...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ⚙️ Agent Configuration Panel -->
+            <div class="shadow-config-panel chart-card" id="shadowConfigPanel">
+                <div class="shadow-config-header" onclick="toggleShadowConfig()">
+                    <div class="shadow-config-title-row">
+                        <div style="display:flex;align-items:center;gap:0.75rem;">
+                            <i data-lucide="settings-2" style="color:var(--shadow-accent);width:20px;height:20px;"></i>
+                            <h3 class="chart-title" style="margin:0;">⚙️ Agenten-Konfiguration</h3>
+                            <span class="shadow-config-badge" id="shadowConfigBadge">Standard</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:0.75rem;">
+                            <span style="font-size:0.8rem;color:var(--text-muted);">Konfiguration bleibt nach Reset erhalten</span>
+                            <i data-lucide="chevron-down" id="shadowConfigChevron" style="color:var(--text-muted);transition:transform 0.3s;"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="shadow-config-body" id="shadowConfigBody" style="display:none;">
+                    <!-- Strategy Mode -->
+                    <div class="shadow-config-section">
+                        <h4 class="shadow-config-section-title">🎯 Strategie-Modus</h4>
+                        <div class="shadow-strategy-btns">
+                            <button class="shadow-strategy-btn" data-mode="conservative" onclick="setShadowStrategy('conservative', this)">
+                                <i data-lucide="shield"></i>
+                                <span class="shadow-strategy-label">Konservativ</span>
+                                <span class="shadow-strategy-desc">Viel Cash, nur Score &gt;70, stabile Sektoren</span>
+                            </button>
+                            <button class="shadow-strategy-btn active" data-mode="balanced" onclick="setShadowStrategy('balanced', this)">
+                                <i data-lucide="scale"></i>
+                                <span class="shadow-strategy-label">Ausgewogen</span>
+                                <span class="shadow-strategy-desc">Wachstum + Sicherheit, Regeln strikt</span>
+                            </button>
+                            <button class="shadow-strategy-btn" data-mode="aggressive" onclick="setShadowStrategy('aggressive', this)">
+                                <i data-lucide="zap"></i>
+                                <span class="shadow-strategy-label">Aggressiv</span>
+                                <span class="shadow-strategy-desc">Risikofreudig, weniger Cash, hohe Gewichtungen</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Rules Grid -->
+                    <div class="shadow-config-section">
+                        <h4 class="shadow-config-section-title">📏 Portfolio-Regeln</h4>
+                        <div class="shadow-config-grid">
+
+                            <!-- Max Positionen -->
+                            <div class="shadow-config-row">
+                                <div class="shadow-config-label">
+                                    <span>Max. Positionen</span>
+                                    <small>Wie viele Aktien darf das Portfolio maximal halten</small>
+                                </div>
+                                <div class="shadow-config-control">
+                                    <input type="range" class="shadow-slider" id="cfgMaxPositions"
+                                        min="5" max="50" step="1" value="20"
+                                        oninput="updateSliderValue('cfgMaxPositions', 'valMaxPositions', '', '')">
+                                    <div class="shadow-slider-val">
+                                        <span id="valMaxPositions">20</span>
+                                        <small>Positionen</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Max Gewichtung -->
+                            <div class="shadow-config-row">
+                                <div class="shadow-config-label">
+                                    <span>Max. Gewichtung / Position</span>
+                                    <small>Maximaler Anteil einer einzelnen Position am Gesamtportfolio</small>
+                                </div>
+                                <div class="shadow-config-control">
+                                    <input type="range" class="shadow-slider" id="cfgMaxWeight"
+                                        min="2" max="25" step="0.5" value="10"
+                                        oninput="updateSliderValue('cfgMaxWeight', 'valMaxWeight', '', '%')">
+                                    <div class="shadow-slider-val">
+                                        <span id="valMaxWeight">10</span>
+                                        <small>%</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Mind. Cash-Reserve -->
+                            <div class="shadow-config-row">
+                                <div class="shadow-config-label">
+                                    <span>Mind. Cash-Reserve</span>
+                                    <small>Dieser Cash-Anteil bleibt immer unberührt (Sicherheitspuffer)</small>
+                                </div>
+                                <div class="shadow-config-control">
+                                    <input type="range" class="shadow-slider" id="cfgMinCash"
+                                        min="0" max="30" step="0.5" value="5"
+                                        oninput="updateSliderValue('cfgMinCash', 'valMinCash', '', '%')">
+                                    <div class="shadow-slider-val">
+                                        <span id="valMinCash">5</span>
+                                        <small>%</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Min. Trade-Volumen -->
+                            <div class="shadow-config-row">
+                                <div class="shadow-config-label">
+                                    <span>Min. Trade-Volumen</span>
+                                    <small>Kleiner Trades werden ignoriert (Transaktionskosten-Simulation)</small>
+                                </div>
+                                <div class="shadow-config-control">
+                                    <input type="range" class="shadow-slider" id="cfgMinTrade"
+                                        min="100" max="5000" step="50" value="500"
+                                        oninput="updateSliderValue('cfgMinTrade', 'valMinTrade', '€ ', '')">
+                                    <div class="shadow-slider-val">
+                                        <span id="valMinTrade">€ 500</span>
+                                        <small>EUR</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Max Trades/Zyklus -->
+                            <div class="shadow-config-row">
+                                <div class="shadow-config-label">
+                                    <span>Max. Trades pro Zyklus</span>
+                                    <small>Begrenzt wie viele Trades der Agent pro Tag ausführen darf</small>
+                                </div>
+                                <div class="shadow-config-control">
+                                    <input type="range" class="shadow-slider" id="cfgMaxTrades"
+                                        min="1" max="10" step="1" value="3"
+                                        oninput="updateSliderValue('cfgMaxTrades', 'valMaxTrades', '', '')">
+                                    <div class="shadow-slider-val">
+                                        <span id="valMaxTrades">3</span>
+                                        <small>Trades</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Max Sektor-Konzentration -->
+                            <div class="shadow-config-row">
+                                <div class="shadow-config-label">
+                                    <span>Max. Sektor-Konzentration</span>
+                                    <small>Verhindert Klumpenrisiken in einem einzelnen Sektor</small>
+                                </div>
+                                <div class="shadow-config-control">
+                                    <input type="range" class="shadow-slider" id="cfgMaxSector"
+                                        min="20" max="60" step="1" value="35"
+                                        oninput="updateSliderValue('cfgMaxSector', 'valMaxSector', '', '%')">
+                                    <div class="shadow-slider-val">
+                                        <span id="valMaxSector">35</span>
+                                        <small>%</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Min. Buy-Score -->
+                            <div class="shadow-config-row">
+                                <div class="shadow-config-label">
+                                    <span>Mind. Score für Käufe</span>
+                                    <small>Nur Aktien mit mindestens diesem Score werden gekauft</small>
+                                </div>
+                                <div class="shadow-config-control">
+                                    <input type="range" class="shadow-slider" id="cfgMinScore"
+                                        min="40" max="85" step="1" value="60"
+                                        oninput="updateSliderValue('cfgMinScore', 'valMinScore', '', '/100')">
+                                    <div class="shadow-slider-val">
+                                        <span id="valMinScore">60</span>
+                                        <small>/100</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Action Bar -->
+                    <div class="shadow-config-actions">
+                        <button class="shadow-config-reset-btn" onclick="resetShadowConfig()">
+                            <i data-lucide="rotate-ccw"></i> Auf Standard zurücksetzen
+                        </button>
+                        <button class="shadow-config-save-btn" id="shadowConfigSaveBtn" onclick="saveShadowConfig()">
+                            <i data-lucide="save"></i>
+                            <span id="shadowConfigSaveTxt">Konfiguration speichern</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
 
-    <!-- Stock Detail Slide-Over Panel -->
+    </div> <!-- End .app-layout -->
+
+
+    <!-- Modal: Stock Details -->
     <div class="slide-panel-overlay" id="stockPanelOverlay" onclick="closeStockPanel()"></div>
     <div class="slide-panel" id="stockPanel">
         <button class="modal-close" onclick="closeStockPanel()">✕</button>
@@ -470,6 +819,12 @@
             <i data-lucide="upload-cloud" style="width:48px;height:48px;color:var(--accent);"></i>
             <p data-i18n="csvSelectFile">Datei auswählen</p>
             <p class="csv-format-hint" data-i18n="csvFormatHint">Format: ticker, shares, buy_price, buy_date, currency (optional)</p>
+            
+            <div style="margin-top: 1rem; padding: 1rem; border-radius: var(--radius-sm); background: var(--bg-secondary); border: 1px dashed var(--border); font-size: 0.85rem; color: var(--text-secondary); text-align: left;">
+                <strong style="color: var(--accent-magenta);">👨‍💻 Entwickler Info:</strong><br>
+                Dieser CSV-Importer nutzt standardisierte Spalten. Möchtest du Exporte deines Brokers (Trade Republic, Scalable, IBKR) direkt ohne Umformatierung importieren? 
+                Passe einfach das <code style="color: var(--text-primary); background: var(--bg-primary); padding: 2px 4px; border-radius: 4px;">mapping</code> und die Parsing-Logik in <code style="color: var(--text-primary); background: var(--bg-primary); padding: 2px 4px; border-radius: 4px;">fetchers/csv_reader.py</code> an deine Bedürfnisse an!
+            </div>
             <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleCsvFile(event)">
         </div>
         <div class="csv-preview" id="csvPreview" style="display:none;"></div>
@@ -501,11 +856,15 @@
                 <i data-lucide="brain"></i>
                 <span data-i18n="ai">AI</span>
             </button>
+            <button class="bottom-nav-item" data-tab="shadow" onclick="switchTab('shadow'); updateBottomNav(this);">
+                <i data-lucide="bot"></i>
+                <span>Shadow</span>
+            </button>
         </div>
     </nav>
 
     <script src="/static/translations.js"></script>
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=2"></script>
     <script>
         // Initialize Lucide icons and translations after DOM is ready
         document.addEventListener('DOMContentLoaded', () => {

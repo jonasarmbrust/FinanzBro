@@ -1,4 +1,4 @@
-"""FinanzBro - URL Fetcher Tests.
+"""FinanceBro - URL Fetcher Tests.
 
 Tests für:
   - HTML→Text Konvertierung

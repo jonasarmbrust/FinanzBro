@@ -1,4 +1,4 @@
-"""FinanzBro - Daten-Refresh Services.
+"""FinanceBro - Daten-Refresh Services.
 
 Enthält die gesamte Refresh-Logik:
 - _refresh_data() / _do_refresh(): Voller Refresh aller Quellen

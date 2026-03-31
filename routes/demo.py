@@ -1,4 +1,4 @@
-"""FinanzBro - Demo Mode API-Routes.
+"""FinanceBro - Demo Mode API-Routes.
 
 Expliziter Demo-Toggle: Lädt/entfernt fiktives Portfolio für
 externe Präsentationen — unabhängig von konfigurierten API-Keys.

@@ -1,4 +1,4 @@
-"""FinanzBro - AI Trade Advisor Tests v2.
+"""FinanceBro - AI Trade Advisor Tests v2.
 
 Tests für:
   - Portfolio Context Builder

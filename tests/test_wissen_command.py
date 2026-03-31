@@ -26,16 +26,16 @@ class TestWissenCommandRouting:
 
     @pytest.mark.asyncio
     async def test_wissen_with_args_routed(self):
-        """Prüft dass /wissen finanzbro korrekt weiterleitet."""
+        """Prüft dass /wissen financebro korrekt weiterleitet."""
         with patch("services.telegram_bot.settings") as mock_s, \
              patch("services.telegram_bot._cmd_wissen", new_callable=AsyncMock) as mock_cmd:
             mock_s.TELEGRAM_CHAT_ID = "123"
 
             from services.telegram_bot import handle_update
-            update = {"message": {"text": "/wissen finanzbro", "chat": {"id": 123}}}
+            update = {"message": {"text": "/wissen financebro", "chat": {"id": 123}}}
             await handle_update(update)
 
-            mock_cmd.assert_called_once_with("123", ["finanzbro"])
+            mock_cmd.assert_called_once_with("123", ["financebro"])
 
     @pytest.mark.asyncio
     async def test_wissen_quiz_routed(self):
@@ -76,9 +76,9 @@ class TestWissenTipOfDay:
 class TestWissenProjectSummary:
     """Tests für Projekt-Zusammenfassungen via /wissen."""
 
-    def test_finanzbro_contains_key_info(self):
+    def test_financebro_contains_key_info(self):
         from services.knowledge_data import get_project_summary
-        summary = get_project_summary("finanzbro")
+        summary = get_project_summary("financebro")
         assert "FastAPI" in summary
         assert "Docker" in summary
 

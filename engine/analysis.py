@@ -1,4 +1,4 @@
-"""FinanzBro - Analyse Engine
+"""FinanceBro - Analyse Engine
 
 Erstellt vollständige Portfolio-Analyse-Reports mit Score-Historie
 und Trend-Erkennung. Unterstützt 3 Analyse-Level:

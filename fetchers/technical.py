@@ -1,4 +1,4 @@
-"""FinanzBro - Technical Indicators Fetcher
+"""FinanceBro - Technical Indicators Fetcher
 
 Berechnet RSI(14), SMA(50/200) Crossover und 30-Tage-Momentum
 aus yfinance-Historiedaten. Kein zusätzlicher API-Call nötig.

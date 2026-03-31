@@ -1,5 +1,5 @@
 /**
- * FinanzBro – Dashboard Frontend Logic
+ * FinanceBro – Dashboard Frontend Logic
  * Fetches data from FastAPI backend and renders the dashboard.
  */
 
@@ -45,6 +45,13 @@ async function loadPortfolio() {
             return;
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        // Fetch sectors in parallel for the new V2 Dashboard Sector Chart
+        fetch('/api/sectors')
+            .then(r => r.ok ? r.json() : null)
+            .then(sectors => { if (sectors) renderSectorChart(sectors); })
+            .catch(e => console.log('Sector data error:', e));
+
         portfolioData = await res.json();
         renderDashboard();
     } catch (err) {
@@ -71,6 +78,7 @@ function renderDashboard() {
             renderTechPicks();
             renderAIInsight();
             updateRebalancingBadge();
+            loadPerformanceChart(90);
 
             // Lazy-load Analyse tab data if visible
             const analyseTab = document.getElementById('tab-analyse');
@@ -299,7 +307,6 @@ function renderTable() {
         const pnl = toDisplay(rawPnl);
 
         const dailyPct = pos.daily_change_pct;
-        // Daily EUR: use previous day's value = currentValue / (1 + pct/100)  =>  daily change = currentValue - previousValue
         const dailyEur = (dailyPct != null && pos.ticker !== 'CASH')
             ? toDisplay(rawValue - rawValue / (1 + dailyPct / 100))
             : null;
@@ -320,8 +327,9 @@ function renderTable() {
 
         const dailyRowClass = dailyPct > 0 ? 'row-positive' : dailyPct < 0 ? 'row-negative' : '';
 
+        /* V2: Whole row is clickable, no Details button */
         return `
-            <tr data-ticker="${pos.ticker}" data-rating="${rating}" class="${dailyRowClass}">
+            <tr data-ticker="${pos.ticker}" data-rating="${rating}" class="${dailyRowClass} v2-row" onclick="openStockDetail('${pos.ticker}')">
                 <td>
                     <div class="stock-info">
                         <div>
@@ -350,7 +358,6 @@ function renderTable() {
                     </div>
                 </td>
                 <td><span class="rating-badge rating-${rating}">${rating.toUpperCase()}</span></td>
-                <td><button class="btn-detail" onclick="openStockDetail('${pos.ticker}')">Details</button></td>
             </tr>
         `;
     }).join('');
@@ -361,7 +368,7 @@ function renderTable() {
         const cashPos = cashStock.position;
         const cashValue = toDisplay(cashPos.current_price);
         tbody.innerHTML += `
-            <tr class="cash-separator"><td colspan="10"><hr></td></tr>
+            <tr class="cash-separator"><td colspan="9"><hr></td></tr>
             <tr class="cash-row">
                 <td>
                     <div class="stock-info">
@@ -379,7 +386,6 @@ function renderTable() {
                 <td class="pnl-cell">–</td>
                 <td>–</td>
                 <td>–</td>
-                <td></td>
             </tr>
         `;
     }
@@ -880,10 +886,10 @@ document.addEventListener('keydown', e => {
 
 // ==================== Tabs ====================
 function switchTab(tab) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-    const tabBtn = document.querySelector(`.tabs [data-tab="${tab}"]`);
+    const tabBtn = document.querySelector(`.sidebar-nav [data-tab="${tab}"]`);
     if (tabBtn) tabBtn.classList.add('active');
     document.getElementById(`tab-${tab}`).classList.add('active');
 
@@ -900,7 +906,19 @@ function switchTab(tab) {
     if (tab === 'historie') {
         loadPerformanceKPIs();
     }
+    // Load shadow tab data when activated
+    if (tab === 'shadow') {
+        loadShadowTab();
+    }
+
+    // Fix Chart.js hidden tab rendering bug
+    requestAnimationFrame(() => {
+        if (typeof perfChartInstances !== 'undefined') {
+            perfChartInstances.forEach(c => c.resize());
+        }
+    });
 }
+
 
 // ==================== Filter & Sort ====================
 function filterTable(filter, btn) {
@@ -1783,9 +1801,9 @@ async function loadStockNews(ticker) {
 }
 
 // ==================== D5: Portfolio Performance Chart ====================
-let perfChartInstance = null;
+let perfChartInstances = [];
 
-async function loadPerformanceChart(days = 30, btn = null) {
+async function loadPerformanceChart(days, btn) {
     if (btn) {
         const parent = btn.parentElement;
         parent.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -1797,93 +1815,81 @@ async function loadPerformanceChart(days = 30, btn = null) {
         if (!res.ok) return;
         const data = await res.json();
 
-        if (!data || data.length < 2) {
-            const card = document.getElementById('performanceChartCard');
-            if (card) card.style.display = 'none';
-            return;
-        }
+        // Control card visibility across all instances
+        const hasData = (data && data.length >= 2);
+        document.querySelectorAll('.performanceChartCard').forEach(card => {
+            card.style.display = hasData ? '' : 'none';
+        });
 
-        const card = document.getElementById('performanceChartCard');
-        if (card) card.style.display = '';
+        if (!hasData) return;
 
-        const ctx = document.getElementById('performanceChart');
-        if (!ctx) return;
-        if (perfChartInstance) perfChartInstance.destroy();
+        // Cleanup previous instances
+        perfChartInstances.forEach(instance => instance.destroy());
+        perfChartInstances = [];
 
         const labels = data.map(d => {
             const dt = new Date(d.date);
             return dt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
         });
         const values = data.map(d => d.total_value);
-
-        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 200);
         const isPositive = values[values.length - 1] >= values[0];
-        if (isPositive) {
-            gradient.addColorStop(0, 'rgba(34, 197, 94, 0.25)');
-            gradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
-        } else {
-            gradient.addColorStop(0, 'rgba(239, 68, 68, 0.25)');
-            gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
-        }
 
-        perfChartInstance = new Chart(ctx.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [{
-                    data: values,
-                    borderColor: isPositive ? '#22c55e' : '#ef4444',
-                    borderWidth: 2,
-                    fill: true,
-                    backgroundColor: gradient,
-                    tension: 0.3,
-                    pointRadius: data.length > 30 ? 0 : 3,
-                    pointHoverRadius: 5,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#1a2035',
-                        titleColor: '#f1f5f9',
-                        bodyColor: '#94a3b8',
-                        callbacks: { label: ctx => `${formatCurrency(ctx.raw)}` }
-                    }
-                },
-                scales: {
-                    x: { display: true, grid: { display: false }, ticks: { color: '#64748b', maxTicksLimit: 8, font: { size: 10 } } },
-                    y: { display: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', callback: v => formatCurrency(v), font: { size: 10 } } }
-                },
-                interaction: { intersect: false, mode: 'index' }
+        // Loop and create new chart for each canvas
+        document.querySelectorAll('.performance-chart-canvas').forEach(ctxElement => {
+            const ctx = ctxElement.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+            if (isPositive) {
+                gradient.addColorStop(0, 'rgba(34, 197, 94, 0.25)');
+                gradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
+            } else {
+                gradient.addColorStop(0, 'rgba(239, 68, 68, 0.25)');
+                gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
             }
+
+            const instance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: values,
+                        borderColor: isPositive ? '#22c55e' : '#ef4444',
+                        borderWidth: 2,
+                        fill: true,
+                        backgroundColor: gradient,
+                        tension: 0.3,
+                        pointRadius: data.length > 30 ? 0 : 3,
+                        pointHoverRadius: 5,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1a2035',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#94a3b8',
+                            callbacks: { label: c => `${formatCurrency(c.raw)}` }
+                        }
+                    },
+                    scales: {
+                        x: { display: true, grid: { display: false }, ticks: { color: '#64748b', maxTicksLimit: 8, font: { size: 10 } } },
+                        y: { display: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', callback: v => formatCurrency(v), font: { size: 10 } } }
+                    },
+                    interaction: { intersect: false, mode: 'index' }
+                }
+            });
+            perfChartInstances.push(instance);
         });
+
     } catch (e) {
         console.log('Performance-Chart nicht verfügbar:', e);
     }
 }
 
 
-// ==================== D4: Theme Toggle ====================
-function toggleTheme() {
-    const body = document.body;
-    const isLight = body.classList.toggle('light-mode');
-    localStorage.setItem('finanzbroTheme', isLight ? 'light' : 'dark');
-    const btn = document.getElementById('themeToggle');
-    if (btn) btn.textContent = isLight ? '☀️' : '🌙';
-}
-
-// Initialize theme from localStorage
-(function initTheme() {
-    const saved = localStorage.getItem('finanzbroTheme');
-    if (saved === 'light') {
-        document.body.classList.add('light-mode');
-        const btn = document.getElementById('themeToggle');
-        if (btn) btn.textContent = '☀️';
-    }
-})();
+// Theme Initialization logic handled below
 
 // ==================== DA4: FMP Usage Display ====================
 let fmpUsageInterval = null;
@@ -1930,7 +1936,7 @@ if (!fmpUsageInterval) {
 function saveScoreHistory() {
     if (!portfolioData || !portfolioData.scores) return;
     const today = new Date().toISOString().split('T')[0];
-    const historyKey = 'finanzbroScoreHistory';
+    const historyKey = 'financebroScoreHistory';
     let history = {};
     try {
         history = JSON.parse(localStorage.getItem(historyKey) || '{}');
@@ -1954,7 +1960,7 @@ function saveScoreHistory() {
 
 function getScoreHistory(ticker) {
     try {
-        const history = JSON.parse(localStorage.getItem('finanzbroScoreHistory') || '{}');
+        const history = JSON.parse(localStorage.getItem('financebroScoreHistory') || '{}');
         return history[ticker] || [];
     } catch(e) { return []; }
 }
@@ -2957,18 +2963,6 @@ function toggleTheme() {
 
 // ==================== Animated Tab Indicator ====================
 function updateTabIndicator() {
-    const tabs = document.getElementById('tabs');
-    const indicator = document.getElementById('tabIndicator');
-    if (!tabs || !indicator) return;
-
-    const activeTab = tabs.querySelector('.tab.active');
-    if (!activeTab) return;
-
-    const tabsRect = tabs.getBoundingClientRect();
-    const activeRect = activeTab.getBoundingClientRect();
-
-    indicator.style.width = activeRect.width + 'px';
-    indicator.style.transform = `translateX(${activeRect.left - tabsRect.left}px)`;
 }
 
 // ==================== Compact Scroll Header ====================
@@ -3213,3 +3207,606 @@ async function importCsvPortfolio() {
         btn.textContent = t('uploadCsv');
     }
 }
+
+// ==================== Shadow Portfolio Agent ====================
+
+let shadowPerformanceChartInstance = null;
+let shadowData = null;
+
+/**
+ * Called when the Shadow tab becomes active.
+ */
+function loadShadowTab() {
+    loadShadowPortfolio();
+    loadShadowTransactions();
+    loadShadowDecisionLog();
+    loadShadowPerformanceChart(90);
+    loadShadowConfig();
+}
+
+/**
+ * Loads the current Shadow Portfolio summary and renders KPIs + positions table.
+ */
+async function loadShadowPortfolio() {
+    try {
+        const res = await fetch('/api/shadow-portfolio');
+        if (!res.ok) return;
+        shadowData = await res.json();
+        renderShadowKpis(shadowData);
+        renderShadowPositions(shadowData.positions || []);
+    } catch (e) {
+        console.warn('Shadow portfolio load error:', e);
+    }
+}
+
+/**
+ * Renders the 4 KPI cards (Gesamtwert, P&L, Cash, Positionen).
+ */
+function renderShadowKpis(data) {
+    // Total Value
+    const tvEl = document.getElementById('shadowTotalValue');
+    if (tvEl) tvEl.textContent = formatCurrency(data.total_value_eur || 0);
+
+    // P&L
+    const pnlEl = document.getElementById('shadowPnl');
+    const pnlPctEl = document.getElementById('shadowPnlPct');
+    if (pnlEl) {
+        const pnl = data.pnl_eur || 0;
+        const sign = pnl >= 0 ? '+' : '';
+        pnlEl.textContent = `${sign}${formatCurrency(pnl)}`;
+        pnlEl.className = `shadow-kpi-value ${pnl >= 0 ? 'positive' : 'negative'}`;
+    }
+    if (pnlPctEl) {
+        const pnlPct = data.pnl_pct || 0;
+        const sign = pnlPct >= 0 ? '+' : '';
+        pnlPctEl.textContent = `${sign}${pnlPct.toFixed(2)}%`;
+    }
+
+    // Cash
+    const cashEl = document.getElementById('shadowCash');
+    const cashPctEl = document.getElementById('shadowCashPct');
+    if (cashEl) cashEl.textContent = formatCurrency(data.cash_eur || 0);
+    if (cashPctEl) cashPctEl.textContent = `${(data.cash_pct || 0).toFixed(1)}% des Portfolios`;
+
+    // Positions
+    const posEl = document.getElementById('shadowPositions');
+    if (posEl) posEl.textContent = data.num_positions || 0;
+}
+
+/**
+ * Renders the Shadow positions table.
+ */
+function renderShadowPositions(positions) {
+    const tbody = document.getElementById('shadowPositionsBody');
+    const emptyEl = document.getElementById('shadowPositionsEmpty');
+    if (!tbody) return;
+
+    const nonInitPositions = positions.filter(p => p.shares > 0);
+
+    if (nonInitPositions.length === 0) {
+        tbody.innerHTML = '';
+        if (emptyEl) emptyEl.style.display = 'flex';
+        return;
+    }
+
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    tbody.innerHTML = nonInitPositions.map(p => {
+        const pnlClass = p.pnl_pct >= 0 ? 'shadow-pnl-positive' : 'shadow-pnl-negative';
+        const pnlSign = p.pnl_pct >= 0 ? '+' : '';
+        return `
+            <tr>
+                <td>
+                    <div class="stock-info">
+                        <div class="stock-name">${p.name}</div>
+                        <div class="stock-ticker">${p.ticker}</div>
+                    </div>
+                </td>
+                <td>${p.shares.toFixed(4)}</td>
+                <td class="price-cell">${formatCurrency(p.current_price_eur)}</td>
+                <td class="price-cell"><strong>${formatCurrency(p.value_eur)}</strong></td>
+                <td>
+                    <div class="score-bar">
+                        <div class="score-bar-track">
+                            <div class="score-bar-fill" style="width:${Math.min(p.weight_pct * 10, 100)}%;background:var(--shadow-accent)"></div>
+                        </div>
+                        <span style="color:var(--shadow-accent);font-weight:600">${p.weight_pct.toFixed(1)}%</span>
+                    </div>
+                </td>
+                <td class="${pnlClass}">
+                    ${pnlSign}${formatCurrency(p.pnl_eur)}<br>
+                    <small>${pnlSign}${p.pnl_pct.toFixed(2)}%</small>
+                </td>
+                <td><small style="color:var(--text-muted)">${p.sector || '–'}</small></td>
+            </tr>
+        `;
+    }).join('');
+
+    if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Loads and renders the dual comparison chart: Shadow vs. Real Portfolio.
+ * Both lines are indexed to 100 at the start point for a fair comparison.
+ */
+async function loadShadowPerformanceChart(days, btn) {
+    // Update period buttons
+    if (btn) {
+        const parent = btn.closest('.filter-buttons');
+        if (parent) parent.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    const ctx = document.getElementById('shadowPerformanceChart');
+    if (!ctx) return;
+
+    try {
+        const [shadowRes, realRes] = await Promise.all([
+            fetch(`/api/shadow-portfolio/performance?days=${days}`),
+            fetch(`/api/portfolio/history?days=${days}`),
+        ]);
+
+        const shadowPerf = shadowRes.ok ? await shadowRes.json() : [];
+        const realPerf = realRes.ok ? await realRes.json() : [];
+
+        if (shadowPerformanceChartInstance) shadowPerformanceChartInstance.destroy();
+
+        if (!shadowPerf.length && !realPerf.length) {
+            ctx.parentElement.innerHTML = '<div class="shadow-loading">Noch keine Performance-Daten — Agent starten um zu beginnen.</div>';
+            return;
+        }
+
+        // Build unified date axis
+        const allDates = new Set([
+            ...shadowPerf.map(d => d.date),
+            ...realPerf.map(d => d.date),
+        ]);
+        const sortedDates = [...allDates].sort();
+
+        // Index shadow values (total_value_eur) to 100
+        const shadowByDate = Object.fromEntries(shadowPerf.map(d => [d.date, d.total_value_eur]));
+        const realByDate = Object.fromEntries(
+            realPerf.map(d => [d.date, d.total_value || d.invested_capital])
+        );
+
+        // Find start values for indexing
+        const firstShadowDate = shadowPerf[0]?.date;
+        const firstRealDate = realPerf[0]?.date;
+        const shadowStart = firstShadowDate ? shadowByDate[firstShadowDate] : null;
+        const realStart = firstRealDate ? realByDate[firstRealDate] : null;
+
+        const shadowPoints = sortedDates.map(date => {
+            const val = shadowByDate[date];
+            if (val == null || shadowStart == null || shadowStart === 0) return null;
+            return parseFloat(((val / shadowStart) * 100).toFixed(2));
+        });
+
+        const realPoints = sortedDates.map(date => {
+            const val = realByDate[date];
+            if (val == null || realStart == null || realStart === 0) return null;
+            return parseFloat(((val / realStart) * 100).toFixed(2));
+        });
+
+        // Check if we have shadow data
+        const hasShadowData = shadowPoints.some(v => v !== null);
+        const hasRealData = realPoints.some(v => v !== null);
+
+        const datasets = [];
+        if (hasShadowData) {
+            datasets.push({
+                label: '🤖 Shadow Agent',
+                data: shadowPoints,
+                borderColor: '#a855f7',
+                backgroundColor: 'rgba(168, 85, 247, 0.08)',
+                borderWidth: 2.5,
+                fill: true,
+                tension: 0.35,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                spanGaps: true,
+            });
+        }
+        if (hasRealData) {
+            datasets.push({
+                label: '📊 Echtes Portfolio',
+                data: realPoints,
+                borderColor: '#06b6d4',
+                backgroundColor: 'rgba(6, 182, 212, 0.05)',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.35,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                borderDash: [5, 3],
+                spanGaps: true,
+            });
+        }
+
+        shadowPerformanceChartInstance = new Chart(ctx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: sortedDates,
+                datasets,
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            color: '#64748b',
+                            font: { family: 'Inter', size: 10 },
+                            maxTicksLimit: 8,
+                        },
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        ticks: {
+                            color: '#64748b',
+                            font: { family: 'Inter', size: 10 },
+                            callback: v => `${v.toFixed(0)}`,
+                        },
+                    },
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: '#a1b0c9',
+                            font: { family: 'Inter', size: 11 },
+                            usePointStyle: true,
+                            pointStyleWidth: 10,
+                            padding: 16,
+                        },
+                    },
+                    tooltip: {
+                        backgroundColor: '#1a2035',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#94a3b8',
+                        borderColor: 'rgba(168,85,247,0.3)',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 10,
+                        callbacks: {
+                            label: ctx => {
+                                const val = ctx.raw;
+                                if (val == null) return `${ctx.dataset.label}: —`;
+                                const delta = (val - 100).toFixed(2);
+                                const sign = delta >= 0 ? '+' : '';
+                                return `${ctx.dataset.label}: ${val.toFixed(1)} (${sign}${delta}%)`;
+                            },
+                            title: items => `📅 ${items[0].label}`,
+                        },
+                    },
+                },
+            },
+        });
+    } catch (e) {
+        console.warn('Shadow chart error:', e);
+    }
+}
+
+/**
+ * Loads and renders the transaction history.
+ */
+async function loadShadowTransactions() {
+    const container = document.getElementById('shadowTxList');
+    if (!container) return;
+
+    try {
+        const res = await fetch('/api/shadow-portfolio/transactions?limit=30');
+        if (!res.ok) return;
+        const txs = await res.json();
+
+        if (!txs.length) {
+            container.innerHTML = '<div class="shadow-loading">Noch keine Transaktionen.</div>';
+            return;
+        }
+
+        container.innerHTML = txs.map(tx => {
+            const date = new Date(tx.timestamp).toLocaleString('de-DE', {
+                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+            });
+            const actionClass = tx.action === 'buy' ? 'buy' : tx.action === 'sell' ? 'sell' : 'init';
+            const actionLabel = tx.action === 'buy' ? 'Kauf' : tx.action === 'sell' ? 'Verkauf' : 'Init';
+            const amountSign = tx.action === 'buy' ? '-' : tx.action === 'sell' ? '+' : '';
+
+            return `
+                <div class="shadow-tx-item">
+                    <span class="shadow-tx-badge ${actionClass}">${actionLabel}</span>
+                    <div style="flex:1">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <span class="shadow-tx-ticker">${tx.ticker}</span>
+                            <span class="shadow-tx-amount">${amountSign}${formatCurrency(tx.total_eur)}</span>
+                        </div>
+                        <div class="shadow-tx-details">
+                            ${tx.shares.toFixed(4)} Stk. @ ${formatCurrency(tx.price_eur)} · ${date}
+                        </div>
+                        ${tx.reason ? `<div class="shadow-tx-reason">💬 ${tx.reason}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<div class="shadow-loading">Fehler beim Laden.</div>';
+    }
+}
+
+/**
+ * Loads the AI decision log and shows the latest entry.
+ */
+async function loadShadowDecisionLog() {
+    try {
+        const res = await fetch('/api/shadow-portfolio/decision-log?limit=1');
+        if (!res.ok) return;
+        const logs = await res.json();
+        if (!logs.length) return;
+
+        const latest = logs[0];
+        const card = document.getElementById('shadowLastDecision');
+        const body = document.getElementById('shadowDecisionBody');
+        if (!card || !body) return;
+
+        const date = new Date(latest.timestamp).toLocaleString('de-DE');
+        let content = `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem">📅 ${date} · ${latest.trades_executed} Trade(s) · ${latest.candidates_evaluated} Kandidaten</div>`;
+        content += `<div>${(latest.ai_reasoning || latest.cycle_summary || '').replace(/\n/g, '<br>')}</div>`;
+
+        body.innerHTML = content;
+        card.style.display = 'block';
+    } catch (e) {
+        console.warn('Decision log error:', e);
+    }
+}
+
+/**
+ * Triggers a manual Shadow Agent cycle.
+ */
+async function runShadowAgent() {
+    const btn = document.getElementById('shadowRunBtn');
+    const btnText = btn?.querySelector('.shadow-btn-text');
+    const btnLoading = btn?.querySelector('.shadow-btn-loading');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.add('running');
+        if (btnText) btnText.style.display = 'none';
+        if (btnLoading) btnLoading.style.display = 'inline';
+    }
+
+    showToast('🤖 Shadow Agent läuft... (30-90 Sekunden)', 'info');
+
+    try {
+        const res = await fetch('/api/shadow-portfolio/run', { method: 'POST' });
+        const result = await res.json();
+
+        if (result.error) {
+            showToast(`❌ Agent-Fehler: ${result.error}`, 'error');
+        } else {
+            const tradeCount = result.trades_executed?.length || 0;
+            showToast(`✅ Shadow Agent: ${tradeCount} Trade(s) ausgeführt`, 'success');
+
+            // Reload all shadow data
+            await loadShadowPortfolio();
+            loadShadowTransactions();
+            loadShadowDecisionLog();
+            loadShadowPerformanceChart(90);
+        }
+    } catch (e) {
+        showToast('❌ Agent-Aufruf fehlgeschlagen', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('running');
+            if (btnText) btnText.style.display = 'inline';
+            if (btnLoading) btnLoading.style.display = 'none';
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+/**
+ * Resets the Shadow Portfolio (after confirmation).
+ */
+async function resetShadowPortfolio() {
+    if (!confirm('Shadow-Portfolio wirklich zurücksetzen? Alle Positionen und Transaktionen werden gelöscht.\n\n💡 Die Konfiguration (Agenten-Regeln) bleibt erhalten.')) return;
+
+    try {
+        const res = await fetch('/api/shadow-portfolio/reset', { method: 'POST' });
+        const result = await res.json();
+        if (result.status === 'ok') {
+            showToast('🗑️ Shadow-Portfolio zurückgesetzt', 'success');
+            shadowData = null;
+            renderShadowKpis({ total_value_eur: 0, pnl_eur: 0, pnl_pct: 0, cash_eur: 0, cash_pct: 0, num_positions: 0 });
+            renderShadowPositions([]);
+            document.getElementById('shadowTxList').innerHTML = '<div class="shadow-loading">Noch keine Transaktionen.</div>';
+            document.getElementById('shadowLastDecision').style.display = 'none';
+            if (shadowPerformanceChartInstance) {
+                shadowPerformanceChartInstance.destroy();
+                shadowPerformanceChartInstance = null;
+            }
+        }
+    } catch (e) {
+        showToast('❌ Reset fehlgeschlagen', 'error');
+    }
+}
+
+
+// ==================== Shadow Config Panel ====================
+
+let _shadowCurrentMode = 'balanced';
+
+/**
+ * Toggles the config panel open/close.
+ */
+function toggleShadowConfig() {
+    const body = document.getElementById('shadowConfigBody');
+    const chevron = document.getElementById('shadowConfigChevron');
+    if (!body) return;
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : 'block';
+    if (chevron) chevron.classList.toggle('shadow-config-chevron-open', !isOpen);
+}
+
+/**
+ * Updates slider display value + CSS gradient fill.
+ */
+function updateSliderValue(sliderId, valueId, prefix, suffix) {
+    const slider = document.getElementById(sliderId);
+    const valueEl = document.getElementById(valueId);
+    if (!slider || !valueEl) return;
+
+    const val = parseFloat(slider.value);
+    const min = parseFloat(slider.min);
+    const max = parseFloat(slider.max);
+    const pct = ((val - min) / (max - min)) * 100;
+
+    // Update display
+    valueEl.textContent = `${prefix}${val}${suffix}`;
+
+    // Update slider gradient fill via CSS variable
+    slider.style.setProperty('--slider-pct', `${pct}%`);
+    // Also update background directly for cross-browser support
+    slider.style.background = `linear-gradient(to right, var(--shadow-accent) 0%, var(--shadow-accent) ${pct}%, var(--border) ${pct}%, var(--border) 100%)`;
+}
+
+/**
+ * Sets the strategy mode button active state.
+ */
+function setShadowStrategy(mode, btn) {
+    _shadowCurrentMode = mode;
+    document.querySelectorAll('.shadow-strategy-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+}
+
+/**
+ * Loads current config from API and populates the sliders.
+ */
+async function loadShadowConfig() {
+    try {
+        const res = await fetch('/api/shadow-portfolio/config');
+        if (!res.ok) return;
+        const { config } = await res.json();
+        _applyShadowConfigToUI(config);
+    } catch (e) {
+        console.warn('Shadow config load error:', e);
+    }
+}
+
+/**
+ * Applies a config object to all UI controls.
+ */
+function _applyShadowConfigToUI(config) {
+    if (!config) return;
+
+    // Strategy mode
+    _shadowCurrentMode = config.strategy_mode || 'balanced';
+    document.querySelectorAll('.shadow-strategy-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === _shadowCurrentMode);
+    });
+
+    // Sliders
+    const map = [
+        ['cfgMaxPositions', 'valMaxPositions', config.max_positions, '', ''],
+        ['cfgMaxWeight',    'valMaxWeight',    config.max_weight_pct, '', '%'],
+        ['cfgMinCash',      'valMinCash',      config.min_cash_pct, '', '%'],
+        ['cfgMinTrade',     'valMinTrade',     config.min_trade_eur, '€ ', ''],
+        ['cfgMaxTrades',    'valMaxTrades',    config.max_trades_per_cycle, '', ''],
+        ['cfgMaxSector',    'valMaxSector',    config.max_sector_pct, '', '%'],
+        ['cfgMinScore',     'valMinScore',     config.min_buy_score, '', '/100'],
+    ];
+
+    for (const [sliderId, valueId, val, prefix, suffix] of map) {
+        const slider = document.getElementById(sliderId);
+        if (slider && val != null) {
+            slider.value = val;
+            updateSliderValue(sliderId, valueId, prefix, suffix);
+        }
+    }
+
+    // Badge
+    const badge = document.getElementById('shadowConfigBadge');
+    if (badge) {
+        const modeLabel = { conservative: 'Konservativ', balanced: 'Ausgewogen', aggressive: 'Aggressiv' };
+        badge.textContent = modeLabel[_shadowCurrentMode] || 'Standard';
+    }
+
+    if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Reads all slider values and saves config to API.
+ */
+async function saveShadowConfig() {
+    const btn = document.getElementById('shadowConfigSaveBtn');
+    const txt = document.getElementById('shadowConfigSaveTxt');
+    if (btn) { btn.disabled = true; if (txt) txt.textContent = 'Speichert...'; }
+
+    const config = {
+        strategy_mode: _shadowCurrentMode,
+        max_positions: parseInt(document.getElementById('cfgMaxPositions')?.value || 20),
+        max_weight_pct: parseFloat(document.getElementById('cfgMaxWeight')?.value || 10),
+        min_cash_pct: parseFloat(document.getElementById('cfgMinCash')?.value || 5),
+        min_trade_eur: parseFloat(document.getElementById('cfgMinTrade')?.value || 500),
+        max_trades_per_cycle: parseInt(document.getElementById('cfgMaxTrades')?.value || 3),
+        max_sector_pct: parseFloat(document.getElementById('cfgMaxSector')?.value || 35),
+        min_buy_score: parseFloat(document.getElementById('cfgMinScore')?.value || 60),
+    };
+
+    try {
+        const res = await fetch('/api/shadow-portfolio/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+        const result = await res.json();
+
+        if (result.status === 'ok') {
+            showToast('✅ Konfiguration gespeichert — gilt ab dem nächsten Zyklus', 'success');
+            _applyShadowConfigToUI(result.config);
+        } else {
+            showToast('❌ Speichern fehlgeschlagen', 'error');
+        }
+    } catch (e) {
+        showToast('❌ Netzwerkfehler beim Speichern', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; if (txt) txt.textContent = 'Konfiguration speichern'; }
+    }
+}
+
+/**
+ * Resets config to defaults (calls API with empty object to trigger defaults).
+ */
+async function resetShadowConfig() {
+    if (!confirm('Konfiguration auf Standardwerte zurücksetzen?')) return;
+
+    // Default values
+    const defaults = {
+        strategy_mode: 'balanced',
+        max_positions: 20,
+        max_weight_pct: 10.0,
+        min_cash_pct: 5.0,
+        min_trade_eur: 500.0,
+        max_trades_per_cycle: 3,
+        max_sector_pct: 35.0,
+        min_buy_score: 60.0,
+    };
+
+    try {
+        const res = await fetch('/api/shadow-portfolio/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(defaults),
+        });
+        const result = await res.json();
+        if (result.status === 'ok') {
+            showToast('🔄 Konfiguration zurückgesetzt', 'success');
+            _applyShadowConfigToUI(result.config);
+        }
+    } catch (e) {
+        showToast('❌ Fehler beim Zurücksetzen', 'error');
+    }
+}
+
+

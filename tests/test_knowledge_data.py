@@ -68,7 +68,7 @@ class TestProjectKnowledge:
     """Tests für die Projekt-Datenbank."""
 
     def test_all_projects_present(self):
-        expected = {"ai_knowledge", "pokerpro", "finanzbro", "job_automation"}
+        expected = {"ai_knowledge", "pokerpro", "financebro", "job_automation"}
         assert set(PROJECT_KNOWLEDGE.keys()) == expected
 
     def test_project_structure(self):
@@ -90,8 +90,8 @@ class TestGetProjectSummary:
     """Tests für get_project_summary()."""
 
     def test_valid_project(self):
-        summary = get_project_summary("finanzbro")
-        assert "FinanzBro" in summary
+        summary = get_project_summary("financebro")
+        assert "FinanceBro" in summary
         assert "Technologien" in summary
         assert "Best Practices" in summary
 
@@ -108,7 +108,7 @@ class TestGetProjectSummary:
     def test_fuzzy_match_alias(self):
         """Aliases wie 'poker' oder 'aktien' funktionieren."""
         assert "PokerPro" in get_project_summary("poker")
-        assert "FinanzBro" in get_project_summary("aktien")
+        assert "FinanceBro" in get_project_summary("aktien")
         assert "AI Knowledge" in get_project_summary("quiz")
 
 
@@ -116,17 +116,17 @@ class TestFuzzyMatch:
     """Tests für die Fuzzy-Matching-Logik."""
 
     def test_exact_match(self):
-        assert _fuzzy_match_project("finanzbro") == "finanzbro"
+        assert _fuzzy_match_project("financebro") == "financebro"
         assert _fuzzy_match_project("pokerpro") == "pokerpro"
 
     def test_alias_match(self):
         assert _fuzzy_match_project("poker") == "pokerpro"
-        assert _fuzzy_match_project("finanz") == "finanzbro"
+        assert _fuzzy_match_project("finanz") == "financebro"
         assert _fuzzy_match_project("job") == "job_automation"
         assert _fuzzy_match_project("ai") == "ai_knowledge"
 
     def test_case_insensitive(self):
-        assert _fuzzy_match_project("FinanzBro") == "finanzbro"
+        assert _fuzzy_match_project("FinanceBro") == "financebro"
         assert _fuzzy_match_project("POKERPRO") == "pokerpro"
 
     def test_unknown_returns_none(self):

@@ -1,4 +1,4 @@
-"""FinanzBro - Analytics API Routes.
+"""FinanceBro - Analytics API Routes.
 
 Endpunkte für erweiterte Analysen:
   - Dividenden, Benchmark, Korrelation, Risk, Earnings, News,

@@ -1,4 +1,4 @@
-"""FinanzBro - Performance Attribution Engine
+"""FinanceBro - Performance Attribution Engine
 
 Zerlegt das Portfolio-P&L in seine Treiber:
   - Kursgewinne pro Position (absolut + % des Gesamt-P&L)

@@ -1,4 +1,4 @@
-"""FinanzBro - Tests für _normalize_pct() Edge Cases.
+"""FinanceBro - Tests für _normalize_pct() Edge Cases.
 
 Stellt sicher, dass die Prozent-Normalisierung korrekt arbeitet:
   - Dezimalwerte (0.25 → 25%) werden erkannt und umgerechnet
