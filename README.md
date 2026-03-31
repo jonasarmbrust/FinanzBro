@@ -12,6 +12,11 @@
 
 FinanceBro is not just a dashboard—it is a full-fledged **AI Financial Agent** built around Google's Gemini 2.5 Pro. It autonomously monitors your stock portfolio, analyzes real-time market conditions, and communicates with you via a beautiful web UI and a proactive Telegram bot. By combining a hard-coded 10-factor quantitative model with sophisticated LLM reasoning, it bridges the gap between classic stock screeners and modern agentic AI.
 
+## 💡 The Vision: From Dashboard to Autonomous Agent
+
+I built FinanzBro to answer a simple question: Can a non-engineer build a production-grade AI agent system from scratch?
+The answer turned out to be yes — and the journey taught me more about AI's real capabilities than any course. I chose personal investing as my domain because genuine interest keeps you going when things break at 2 AM. What started as a scoring engine evolved into an autonomous AI advisor with function calling, real-time streaming, and a Telegram bot that delivers daily AI-generated portfolio reports — turning this from a side project into an interactive agent I actually talk to every day.
+
 ## 🧠 The Agent Architecture (Why it's an Agent)
 
 FinanceBro operates on the modern Agent paradigm (*Perceive → Reason → Act*):
@@ -67,10 +72,6 @@ FinanceBro operates on the modern Agent paradigm (*Perceive → Reason → Act*)
 | **Bot** | Telegram Bot API (Commands, Voice Input, Inline Buttons) |
 | **Tests** | pytest (391 tests, 22 test files) |
 
-## 💡 The Vision: From Dashboard to Autonomous Agent
-
-I built FinanzBro to answer a simple question: Can a non-engineer build a production-grade AI agent system from scratch?
-The answer turned out to be yes — and the journey taught me more about AI's real capabilities than any course. I chose personal investing as my domain because genuine interest keeps you going when things break at 2 AM. What started as a scoring engine evolved into an autonomous AI advisor with function calling, real-time streaming, and a Telegram bot that delivers daily AI-generated portfolio reports — turning this from a side project into an interactive agent I actually talk to every day.
 
 ## Screenshots
 
