@@ -28,25 +28,24 @@ FinanceBro operates on the modern Agent paradigm (*Perceive → Reason → Act*)
 
 ![FinanceBro Dashboard](docs/screenshots/dashboard-overview.png)
 
-
-📸 More Screenshots
+### 📸 Dashboard Showcase
 
 | | |
 |---|---|
-| ![Portfolio Table](docs/screenshots/portfolio-table.png) | ![Analysis Tab](docs/screenshots/analyse-tab.png) |
-| **Portfolio Positions** — Score-sorted with Buy/Hold/Sell ratings | **Analysis** — Correlation Matrix, Benchmark, Dividends |
-| ![Rebalancing](docs/screenshots/rebalancing.png) | ![AI Advisor](docs/screenshots/ai-advisor.png) |
-| **Rebalancing** — Conviction-based with sector risk warnings | **AI Trade Advisor** — Evaluate trades with Gemini 2.5 Pro |
-| ![Shadow Agent DE](docs/screenshots/shadow-agent-de.png) | ![Shadow Agent EN](docs/screenshots/shadow-agent-en.png) |
-| **Shadow Agent (DE)** — Autonomous paper-trading agent | **Shadow Agent (EN)** — Bilingual UI support |
-| ![Shadow Config](docs/screenshots/shadow-agent-config.png) | ![Stock Detail](docs/screenshots/stock-detail.png) |
-| **Agent Configuration** — Strategy modes & portfolio rules | **Stock Detail** — 10-factor score breakdown with chart |
-| ![History](docs/screenshots/history-tab.png) | |
-| **History** — Full position history with P&L, dividends, taxes | |
+| ![Shadow Agent EN](docs/screenshots/shadow-agent-en.png) | ![Shadow Config](docs/screenshots/shadow-agent-config.png) |
+| **Shadow Agent (EN)** — Autonomous paper-trading agent | **Agent Configuration** — Strategy modes & portfolio rules |
+| ![Portfolio Table](docs/screenshots/portfolio-table.png) | ![AI Advisor](docs/screenshots/ai-advisor.png) |
+| **Portfolio Positions** — Score-sorted with Buy/Hold/Sell ratings | **AI Trade Advisor** — Evaluate trades with Gemini 2.5 Pro |
+| ![Analysis Tab](docs/screenshots/analyse-tab.png) | ![Rebalancing](docs/screenshots/rebalancing.png) |
+| **Analysis** — Correlation Matrix, Benchmark, Dividends | **Rebalancing** — Conviction-based with sector risk warnings |
+| ![Stock Detail](docs/screenshots/stock-detail.png) | ![History](docs/screenshots/history-tab.png) |
+| **Stock Detail** — 10-factor score breakdown with chart | **History** — Full position history with P&L, dividends, taxes |
 
 
 
-### 🤖 Telegram Bot
+### 🎙️ Telegram Bot & Voice-to-Action
+
+FinanceBro features a native Telegram integration allowing you to trigger AI features via standard commands or **Audio Voice Messages**.
 
 <table>
   <tr>
@@ -56,21 +55,22 @@ FinanceBro operates on the modern Agent paradigm (*Perceive → Reason → Act*)
   </tr>
 </table>
 
-</details>
-
 ## ✨ Core Features
 
-🎯 **10-Factor Scoring Model** — Deep fundamental analysis fusing Quality, Valuation, Momentum, Analyst Ratings, ESG, and Insider trades into a strict 0–100 score.
+🤖 **1. Autonomous AI Shadow Agent (Agentic Workflow)**  
+A fully autonomous paper-trading engine powered by Gemini 2.5 Pro. It manages an independent portfolio by algorithmically making distinct daily BUY/SELL decisions based on customizable strategies (Aggressive, Balanced, Conservative). It showcases advanced agentic *Function Calling* by independently fetching live market data, verifying strict portfolio rules, and recording transparent reasoning logs for every single trade.
 
-⚖️ **Conviction-Based Rebalancing** — Algorithmically generates portfolio rebalancing targets based on scoring conviction and strict sector-weighting risk controls.
+🎙️ **2. Conversational AI & Voice-First Interface (Telegram)**  
+*Talk to your portfolio!* FinanceBro features a native Telegram Bot with seamless voice-note processing. Simply hold the mic and ask: *"How did my tech stocks perform today?"* The system dynamically transcribes the audio, fetches real-time data, analyzes it via Gemini, and responds conversationally. Complete with secure Webhook validation and proactive push notifications.
 
-📱 **Continuous Telegram Integration** — Connect with your AI agent anywhere. Supports `/score` commands, voice-to-text queries, and free-form portfolio chatting.
+🎯 **3. 10-Factor AI Scoring Engine (Multimodal)**  
+Deep fundamental analysis fusing quantitative data (Quality, Valuation, Momentum, Analyst Ratings) with qualitative AI-Sentiment (Earnings Calls, News) into a strict 0–100 Conviction Score metric (Buy/Hold/Sell).
 
-👻 **Shadow Portfolio Agent** — A full autonomous paper-trading engine that builds, tests, and validates AI-driven investment strategies (Aggressive, Balanced, Conservative) in real-time alongside your main portfolio.
+🌐 **4. Premium Glassmorphism UI & Full i18n**  
+A state-of-the-art SaaS aesthetic featuring Dark/Light "Apple-glass" styling, highly interactive Chart.js modules, Server-Sent Events (SSE) for zero-reload live price ticks, and full bilingual (EN/DE) real-time translations entirely built on a pure Vanilla HTML/JS & FastAPI architecture.
 
-📄 **Universal CSV Import** — Provide your portfolio strictly locally via CSV export from any standard broker; no third-party tracking accounts required.
-
-🌐 **Premium SaaS Dashboard** — Bilingual (EN/DE), Dark/Light Apple-Glass aesthetics, and Server-Sent Events (SSE) for zero-reload live price ticks.
+🔌 **5. Dual-Mode Data Ingestion (Parqet API & Local CSV)**  
+Ultimate flexibility for onboarding: securely synchronize your real-world portfolio using the official Parqet OAuth2 workflow, or remain completely private by uploading a generalized local `CSV` export from any standard broker.
 
 ## 🛠️ Tech Stack
 
@@ -140,9 +140,10 @@ FastAPI Backend (local / Cloud Run)
 
 | Feature | Model | Description |
 |---------|-------|-------------|
+| **Shadow Portfolio Agent** | Pro + **Function Calling** | 🤖 Autonomous Paper-Trading Fund Manager |
+| **Voice-to-Action Assistant** | Pro + **Function Calling** + Audio | 🎙️ Voice messages natively to Gemini (Telegram) |
 | **AI Trade Advisor** | Pro + Grounding + **Function Calling** | 🧠 Agentic advisor — Gemini autonomously calls tools |
 | **AI Chat** | Pro + **Function Calling** | 💬 Free-form portfolio discussion in browser |
-| **Voice-to-Action** | Pro + **Function Calling** + Audio | 🎙️ Voice messages natively to Gemini (Telegram) |
 | **News Curator** | Flash + Grounding + **Structured Output** | 📡 Proactive portfolio news alerts (4×/day) |
 | Score Commentaries | Flash + **Structured Output** | AI commentary per stock on each refresh |
 | Earnings Analysis | Pro + Grounding + **Structured Output** | `/earnings` — Real-time earnings via Search |
@@ -151,11 +152,11 @@ FastAPI Backend (local / Cloud Run)
 | Risk Scenarios | Pro + Grounding | `/risk` — AI-powered stress analysis |
 | Performance Attribution | Engine | P&L by sector, top/flop, Herfindahl Index |
 
-### Function Calling (Trade Advisor)
-Gemini 2.5 Pro has access to 3 tools and autonomously decides which data is needed:
+### Function Calling (Shadow Agent & Trade Advisor)
+Gemini 2.5 Pro has access to specialized tools and autonomously decides which data is needed:
 - `get_stock_score(ticker)` — Calculate 10-factor score
-- `get_portfolio_overview()` — Fetch portfolio context
-- `get_sector_impact(ticker, action, amount)` — Simulate sector impact
+- `get_shadow_portfolio()` — Fetch autonomous portfolio context
+- `get_sector_impact(...)` — Simulate real-portfolio sector impact
 
 ### Async AI Integration
 All Gemini API calls use the async SDK (`client.aio.models.generate_content`). This prevents blocking the FastAPI `asyncio` event loop during long AI inference times, ensuring the dashboard remains responsive at all times.
